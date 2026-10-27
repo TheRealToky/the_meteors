@@ -1,0 +1,27 @@
+{
+  "title": "Life Path \u2014 Rwanda CRVS 2025 Data Decisions & Caveats",
+  "version": "v2.0",
+  "source_report": "Civil Registration and Vital Statistics Systems (CRVS) Annual Report 2025, NISR Rwanda",
+  "data_issues_resolved": {
+    "issue_1_figure19_last_bucket": {
+      "problem": "Labels jump from 75-79 to 85+ without an 80-84 row.",
+      "resolution": "Total sums exactly to 39,355 without an 80-84 row; treated as 80+ and referenced by key 'age.last_bucket'."
+    },
+    "issue_2_conflicting_totals": {
+      "problem": "Deaths differ between sheet 10.2 (39,378) and Table 12 (39,355). Marriages differ between Table 18 (52,878) and sheet 10.10 (52,806).",
+      "resolution": "Standardized on Table 12 for mortality (39,355 in 2025) and Table 18 for nuptiality (50,256 in 2025)."
+    },
+    "issue_3_under_registration": {
+      "problem": "Death registration completeness is only 50.5% in 2025, compared to 92.9% for births.",
+      "resolution": "Strictly labeled as 'registered deaths', never 'risk of dying' or 'true mortality distribution'."
+    },
+    "issue_4_divorces_not_a_rate": {
+      "problem": "4,479 registered divorces vs 50,256 marriages does not equal a 9% divorce rate.",
+      "resolution": "Cohorts differ, and 41.3% of divorces were granted in prior years. Displayed as separate indicators."
+    },
+    "issue_5_composite_life": {
+      "problem": "The player walks one life, but the data is a 2025 cross-section plus 2019-2025 historical trends.",
+      "resolution": "Framed in the intro and documented in the methodology panel."
+    }
+  }
+}

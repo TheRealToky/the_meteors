@@ -1,0 +1,189 @@
+{
+  "id": "birth_stats",
+  "source": {
+    "sheet": "10.3",
+    "title": "Summary statistics on births (2019-2025)",
+    "names_sheet": "Annex 2",
+    "note": "Registered births in 2025. Total fertility rate is 3.5 births per woman."
+  },
+  "indicators": {
+    "registered_births": 356838,
+    "male_births": 92,
+    "female_births": 93,
+    "registration_completeness": 92.9,
+    "sex_ratio_at_birth": 102.7,
+    "fertility_rate": 3.5,
+    "fertility_statement": "Rwandan women have about 3.5 children on average"
+  },
+  "top_names": {
+    "female": [
+      {
+        "name": "INEZA",
+        "count": 8216
+      },
+      {
+        "name": "ISHIMWE",
+        "count": 5875
+      },
+      {
+        "name": "UWASE",
+        "count": 5449
+      },
+      {
+        "name": "IRAKOZE",
+        "count": 3079
+      },
+      {
+        "name": "IGIRANEZA",
+        "count": 2859
+      },
+      {
+        "name": "IGANZE",
+        "count": 2763
+      },
+      {
+        "name": "INEZAYIMANA",
+        "count": 2160
+      },
+      {
+        "name": "UWINEZA",
+        "count": 2153
+      },
+      {
+        "name": "IRADUKUNDA",
+        "count": 1964
+      },
+      {
+        "name": "KUNDWA",
+        "count": 1855
+      },
+      {
+        "name": "UMUTONIWASE",
+        "count": 1754
+      },
+      {
+        "name": "IRASUBIZA",
+        "count": 1604
+      },
+      {
+        "name": "UMUKUNDWA",
+        "count": 1436
+      },
+      {
+        "name": "AGWIZE",
+        "count": 1318
+      },
+      {
+        "name": "NISHIMWE",
+        "count": 1255
+      },
+      {
+        "name": "ISIMBI",
+        "count": 1153
+      },
+      {
+        "name": "IZIBYOSE",
+        "count": 1153
+      },
+      {
+        "name": "IGIHOZO",
+        "count": 1115
+      },
+      {
+        "name": "NIYOGISUBIZO",
+        "count": 1074
+      },
+      {
+        "name": "NIYOGUSHIMWA",
+        "count": 1066
+      }
+    ],
+    "male": [
+      {
+        "name": "ISHIMWE",
+        "count": 8407
+      },
+      {
+        "name": "IGANZE",
+        "count": 5070
+      },
+      {
+        "name": "MUGISHA",
+        "count": 3780
+      },
+      {
+        "name": "HIRWA",
+        "count": 3380
+      },
+      {
+        "name": "IRAKOZE",
+        "count": 2637
+      },
+      {
+        "name": "IGIRANEZA",
+        "count": 2386
+      },
+      {
+        "name": "INEZA",
+        "count": 2184
+      },
+      {
+        "name": "IZIBYOSE",
+        "count": 2168
+      },
+      {
+        "name": "IRADUKUNDA",
+        "count": 1928
+      },
+      {
+        "name": "IRASUBIZA",
+        "count": 1889
+      },
+      {
+        "name": "GANZA",
+        "count": 1730
+      },
+      {
+        "name": "KWIZERA",
+        "count": 1569
+      },
+      {
+        "name": "GWIZA",
+        "count": 1470
+      },
+      {
+        "name": "MPANO",
+        "count": 1325
+      },
+      {
+        "name": "NIYOGISUBIZO",
+        "count": 1307
+      },
+      {
+        "name": "BYISHIMO",
+        "count": 1234
+      },
+      {
+        "name": "IGABE",
+        "count": 1200
+      },
+      {
+        "name": "IRANZI",
+        "count": 1107
+      },
+      {
+        "name": "IMPANO",
+        "count": 1096
+      },
+      {
+        "name": "BIGWI",
+        "count": 1090
+      }
+    ]
+  },
+  "caption_key": "birth.caption",
+  "caveat_key": "caveat.registered_not_occurring",
+  "checks": {
+    "registered_births": 356838
+  }
+}

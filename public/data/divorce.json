@@ -1,0 +1,80 @@
+{
+  "id": "divorce_stats",
+  "source": {
+    "sheet": "Table 27",
+    "indicators_sheet": "Table 28",
+    "title": "Registered divorces by duration of marriage (2025)",
+    "note": "41.3% of registered divorces were granted prior to 2025. Not a cohort divorce rate."
+  },
+  "unit": "divorces",
+  "labels": [
+    "0-4",
+    "5-9",
+    "10-14",
+    "15-19",
+    "20-24",
+    "25-29",
+    "30-34",
+    "35-39",
+    "40-44",
+    "45-49",
+    "50+"
+  ],
+  "series": {
+    "granted_before": [
+      223,
+      383,
+      398,
+      368,
+      228,
+      101,
+      51,
+      47,
+      22,
+      13,
+      16
+    ],
+    "granted_2025": [
+      545,
+      693,
+      530,
+      445,
+      230,
+      82,
+      42,
+      29,
+      15,
+      7,
+      11
+    ],
+    "total": [
+      768,
+      1076,
+      928,
+      813,
+      458,
+      183,
+      93,
+      76,
+      37,
+      20,
+      27
+    ]
+  },
+  "indicators": {
+    "total_registered": 4479,
+    "granted_before_count": 1850,
+    "granted_before_percent": 41.3,
+    "granted_in_2025_count": 2629,
+    "male_average_age": 43.3,
+    "female_average_age": 39.8,
+    "crude_rate": 0.2,
+    "peak_duration_bracket": "5-9",
+    "peak_duration_count": 1076
+  },
+  "caption_key": "divorce.caption",
+  "caveat_key": "caveat.divorce_not_rate",
+  "checks": {
+    "sum_total": 4479
+  }
+}

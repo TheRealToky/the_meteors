@@ -1,0 +1,100 @@
+{
+  "id": "marriage_stats",
+  "source": {
+    "sheet": "Figure30",
+    "table_sheet": "Table 18",
+    "title": "Marriages registered in 2025 by age of bride and groom",
+    "note": "Table 18 selected over sheet 10.10 per documented data decision."
+  },
+  "unit": "marriages",
+  "labels": [
+    "Below 21",
+    "21-24",
+    "25-29",
+    "30-34",
+    "35-39",
+    "40+"
+  ],
+  "series": {
+    "male": [
+      73,
+      7117,
+      17059,
+      13068,
+      6456,
+      6483
+    ],
+    "female": [
+      848,
+      17761,
+      16676,
+      7598,
+      3955,
+      3418
+    ],
+    "total": [
+      921,
+      24878,
+      33735,
+      20666,
+      10411,
+      9901
+    ]
+  },
+  "peaks": {
+    "female_peak_bracket": "21-24",
+    "female_peak_count": 17761,
+    "male_peak_bracket": "25-29",
+    "male_peak_count": 17059
+  },
+  "trend_2019_2025": [
+    {
+      "year": 2019,
+      "marriages": 48526,
+      "population": 12374398,
+      "crude_rate": 3.9
+    },
+    {
+      "year": 2020,
+      "marriages": 30859,
+      "population": 12663116,
+      "crude_rate": 2.4
+    },
+    {
+      "year": 2021,
+      "marriages": 33809,
+      "population": 12955763,
+      "crude_rate": 2.6
+    },
+    {
+      "year": 2022,
+      "marriages": 35529,
+      "population": 13246394,
+      "crude_rate": 2.7
+    },
+    {
+      "year": 2023,
+      "marriages": 57880,
+      "population": 13499066,
+      "crude_rate": 4.3
+    },
+    {
+      "year": 2024,
+      "marriages": 52878,
+      "population": 13798561,
+      "crude_rate": 3.8
+    },
+    {
+      "year": 2025,
+      "marriages": 50256,
+      "population": 14108214,
+      "crude_rate": 3.6
+    }
+  ],
+  "caption_key": "marriage.caption",
+  "caveat_key": "caveat.marriage_registration",
+  "checks": {
+    "sum_grooms": 50256,
+    "sum_brides": 50256
+  }
+}
