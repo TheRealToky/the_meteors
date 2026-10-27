@@ -80,5 +80,19 @@
   "caveat.divorce_not_rate": "Ubutane bwanditswe muri 2025 ntibusobanura igipimo cy'abashyingiranywe batandukana, kuko 41.3% baciwe mu nkiko mbere ya 2025.",
   "caveat.registered_deaths_completeness": "Impfu 39,355 zanditswe zingana na 50.5% by'impfu ziteganyijwe. Yitwa gusa impfu zanditswe.",
 
-  "age.last_bucket": "Imyaka 80+"
+  "age.last_bucket": "Imyaka 80+",
+
+  "hud.age_label": "Imyaka",
+  "hud.years_unit": "Imyaka {count}",
+  "hud.stage": "Icyiciro cy'ubuzima",
+  "hud.station": "Ikiciro cya {current} kuri {total}",
+
+  "pyramid.male": "Abagabo",
+  "pyramid.female": "Abagore",
+  "pyramid.age_group": "Icyiciro cy'imyaka",
+  "pyramid.share_of_total": "{percent}% by'abaturage bose",
+  "pyramid.aria_label": "Igishushanyo cy'imiterere y'abaturage b'u Rwanda muri 2025 hakurikijwe imyaka n'igitsina",
+  "pyramid.table_caption": "Imbonerahamwe y'abaturage b'u Rwanda muri 2025 hakurikijwe imyaka n'igitsina",
+  "pyramid.total_population": "Bose hamwe: 14.1M",
+  "pyramid.median_age": "Impuzandengo: Imyaka ~19"
 }

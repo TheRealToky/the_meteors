@@ -80,5 +80,19 @@
   "caveat.divorce_not_rate": "Les divorces enregistrés ne représentent pas un taux d'échec : 41,3 % ont été prononcés avant 2025 et proviennent de diverses cohortes.",
   "caveat.registered_deaths_completeness": "Les 39 355 décès enregistrés représentent 50,5 % de complétude par rapport aux décès attendus. Il s'agit strictement de décès enregistrés.",
 
-  "age.last_bucket": "80 ans et +"
+  "age.last_bucket": "80 ans et +",
+
+  "hud.age_label": "Âge",
+  "hud.years_unit": "{count} ans",
+  "hud.stage": "Étape de vie",
+  "hud.station": "Station {current} sur {total}",
+
+  "pyramid.male": "Hommes",
+  "pyramid.female": "Femmes",
+  "pyramid.age_group": "Tranche d'âge",
+  "pyramid.share_of_total": "{percent} % de la population totale",
+  "pyramid.aria_label": "Pyramide des âges du Rwanda en 2025 par tranche d'âge de 5 ans et par sexe",
+  "pyramid.table_caption": "Tableau de la population rwandaise par tranche d'âge de 5 ans et sexe (2025)",
+  "pyramid.total_population": "Total : 14,1M",
+  "pyramid.median_age": "Âge médian : ~19 ans"
 }

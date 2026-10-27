@@ -80,5 +80,19 @@
   "caveat.divorce_not_rate": "Registered divorces are not a divorce rate. 4,479 divorces vs 50,256 marriages come from different cohorts, and 41.3% were granted before 2025.",
   "caveat.registered_deaths_completeness": "Registered deaths (39,355) represent 50.5% completeness of expected mortality. Labeled strictly as registered deaths, not risk of dying.",
 
-  "age.last_bucket": "80+"
+  "age.last_bucket": "80+",
+
+  "hud.age_label": "Age",
+  "hud.years_unit": "{count} yrs",
+  "hud.stage": "Life Stage",
+  "hud.station": "Station {current} of {total}",
+
+  "pyramid.male": "Males",
+  "pyramid.female": "Females",
+  "pyramid.age_group": "Age Group",
+  "pyramid.share_of_total": "{percent}% of national population",
+  "pyramid.aria_label": "Population pyramid of Rwanda in 2025 by 5-year age groups and sex",
+  "pyramid.table_caption": "Table of Rwandan population by 5-year age groups and sex (2025)",
+  "pyramid.total_population": "Total: 14.1M",
+  "pyramid.median_age": "Median Age: ~19 years"
 }

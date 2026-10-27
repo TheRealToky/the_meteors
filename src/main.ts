@@ -8,47 +8,118 @@ import { createPropsManager } from './world/props';
 import { CameraRail } from './director/cameraRail';
 import { Director } from './director/director';
 import { SceneId } from './director/types';
+import { i18n, t, onLanguageChange } from './i18n';
+import { AgeCounter } from './ui/AgeCounter';
+import { LanguagePicker } from './ui/LanguagePicker';
+
+// Station ages for the life path
+const SCENE_AGES: Record<SceneId, number> = {
+  intro: 0,
+  birth: 0,
+  growing: 15,
+  marriage: 24,
+  divorce: 41,
+  death: 75,
+  outro: 75,
+};
+
+// Station hint i18n keys for honest NISR CRVS context
+const SCENE_HINT_KEYS: Record<SceneId, string> = {
+  intro: 'intro.caption',
+  birth: 'birth.caption',
+  growing: 'growing.caption',
+  marriage: 'marriage.caption',
+  divorce: 'divorce.caption',
+  death: 'death.caption',
+  outro: 'outro.nisr_citation',
+};
 
 async function bootstrap() {
+  // 1. Initialize i18n dictionary and active locale
+  await i18n.init();
+
   const canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
   const sceneContainer = document.getElementById('scene-container') as HTMLElement;
   const stationHint = document.getElementById('station-hint') as HTMLElement;
+  const ageCounterSlot = document.getElementById('hud-age-counter-slot') as HTMLElement;
 
-  // 1. Initialize Core Three.js Renderer, Scene, Camera
+  // 2. Initialize HUD Age Counter
+  const ageCounter = new AgeCounter({
+    initialAge: SCENE_AGES.intro,
+    container: ageCounterSlot,
+  });
+
+  // 3. Initialize Language Picker
+  const langSelectorEl = document.querySelector('.lang-selector') as HTMLElement;
+  new LanguagePicker({
+    container: langSelectorEl,
+    onChange: (lang) => {
+      director.setLanguage(lang);
+      updateStaticUI(director.getCurrentSceneId());
+    },
+  });
+
+  // 4. Initialize Core Three.js Renderer, Scene, Camera
   const { renderer, scene, camera } = createRenderer({ canvas });
   setupResize(camera, renderer);
 
-  // 2. Setup Lighting and Fog
+  // 5. Setup Lighting and Fog
   setupLighting(scene);
 
-  // 3. Create Procedural Rwanda Terraced Hills Terrain
+  // 6. Create Procedural Rwanda Terraced Hills Terrain
   const terrain = createTerrain();
   scene.add(terrain.mesh);
 
-  // 4. Create Life Path Spline and 3D Ribbon Walkway
+  // 7. Create Life Path Spline and 3D Ribbon Walkway
   const pathCurve = createPathCurve(terrain.getHeight);
   const pathMesh = createPathMesh(pathCurve);
   scene.add(pathMesh.mesh);
 
-  // 5. Create Camera Rail along the path
+  // 8. Create Camera Rail along the path
   const cameraRail = new CameraRail(camera, pathCurve);
 
-  // 6. Create Nature Props Manager (Kenney CC0 assets)
+  // 9. Create Nature Props Manager (Kenney CC0 assets)
   const propsManager = createPropsManager(scene, terrain.getHeight);
   propsManager.load().catch((err) => console.warn('Props load warning:', err));
 
-  // Station hint text map
-  const STATION_HINTS: Record<SceneId, string> = {
-    intro: '14.1M Rwandans. One life path through terraced hills.',
-    birth: 'Station 1: 356,838 births registered in Rwanda in 2025.',
-    growing: 'Station 2: Youth, childhood education, and demographic momentum.',
-    marriage: 'Station 3: 50,256 marriages registered in 2025 across Rwanda.',
-    divorce: 'Station 4: 4,479 registered divorces and duration patterns.',
-    death: 'Station 5: 39,355 registered deaths and leading health causes.',
-    outro: 'Station 6: Sources, methodology notes, and CRVS insights.',
-  };
+  // 10. Helper to update static UI labels on language / scene changes
+  function updateStaticUI(currentScene: SceneId) {
+    const sceneKeys: Record<SceneId, string> = {
+      intro: 'nav.intro',
+      birth: 'nav.birth',
+      growing: 'nav.growing',
+      marriage: 'nav.marriage',
+      divorce: 'nav.divorce',
+      death: 'nav.death',
+      outro: 'nav.outro',
+    };
 
-  // 7. Initialize Director (State Machine)
+    (Object.keys(sceneKeys) as SceneId[]).forEach((id) => {
+      const stepEl = document.getElementById(`btn-${id}`);
+      if (stepEl) {
+        const labelEl = stepEl.querySelector('.step-label');
+        if (labelEl) {
+          labelEl.textContent = t(sceneKeys[id]);
+        }
+      }
+    });
+
+    const btnNext = document.getElementById('btn-next');
+    if (btnNext) {
+      btnNext.textContent = t('nav.next');
+    }
+
+    const btnPrev = document.getElementById('btn-prev');
+    if (btnPrev) {
+      btnPrev.textContent = t('nav.prev');
+    }
+
+    if (stationHint && SCENE_HINT_KEYS[currentScene]) {
+      stationHint.textContent = t(SCENE_HINT_KEYS[currentScene]);
+    }
+  }
+
+  // 11. Initialize Director (State Machine)
   const director = new Director({
     scene,
     camera,
@@ -65,14 +136,24 @@ async function bootstrap() {
         }
       });
 
-      // Update station hint
-      if (stationHint && STATION_HINTS[sceneId]) {
-        stationHint.textContent = STATION_HINTS[sceneId];
-      }
+      // Smoothly update character age in HUD counter
+      const targetAge = SCENE_AGES[sceneId] ?? 0;
+      ageCounter.setAge(targetAge, 1.5);
+
+      // Update station hint & labels
+      updateStaticUI(sceneId);
     },
   });
 
-  // 8. Wire UI Interactions
+  // Listen to i18n language changes to refresh global UI
+  onLanguageChange(() => {
+    updateStaticUI(director.getCurrentSceneId());
+  });
+
+  // Initial UI text sync
+  updateStaticUI(director.getCurrentSceneId());
+
+  // 12. Wire UI Interactions
   document.querySelectorAll('.station-step').forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetScene = (btn as HTMLElement).dataset.scene as SceneId;
@@ -96,18 +177,6 @@ async function bootstrap() {
     });
   }
 
-  // Language buttons
-  document.querySelectorAll('.lang-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.lang-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      const lang = (btn as HTMLElement).dataset.lang as 'en' | 'rw' | 'fr';
-      if (lang) {
-        director.setLanguage(lang);
-      }
-    });
-  });
-
   // Keyboard navigation (Left / Right arrow keys)
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight' || e.key === ' ') {
@@ -117,7 +186,7 @@ async function bootstrap() {
     }
   });
 
-  // 9. Start Director and Animation Loop
+  // 13. Start Director and Animation Loop
   await director.start();
 
   const loop = new AnimationLoop(renderer, scene, camera);

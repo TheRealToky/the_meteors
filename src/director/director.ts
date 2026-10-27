@@ -10,6 +10,7 @@ import { MarriageScene } from '../scenes/MarriageScene';
 import { DivorceScene } from '../scenes/DivorceScene';
 import { DeathScene } from '../scenes/DeathScene';
 import { OutroScene } from '../scenes/OutroScene';
+import { getLanguage, setLanguage as i18nSetLanguage } from '../i18n';
 
 export interface DirectorConfig {
   scene: THREE.Scene;
@@ -64,10 +65,12 @@ export class Director {
   }
 
   private parseQueryParams(): void {
+    this.state.lang = getLanguage();
     const params = new URLSearchParams(window.location.search);
     const langParam = params.get('lang');
     if (langParam === 'rw' || langParam === 'fr' || langParam === 'en') {
       this.state.lang = langParam;
+      i18nSetLanguage(langParam);
     }
 
     const sexParam = params.get('sex');
@@ -248,7 +251,7 @@ export class Director {
 
   public setLanguage(lang: 'en' | 'rw' | 'fr'): void {
     this.state.lang = lang;
-    document.documentElement.lang = lang;
+    i18nSetLanguage(lang).catch((err) => console.error('[Director] setLanguage error:', err));
     if (this.currentScene) {
       this.currentScene.onLanguageChange();
     }
