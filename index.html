@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Life Path — Rwanda CRVS 2025 Interactive Infographic</title>
+    <meta name="description" content="Walk one life path through Rwanda across 5 key life stations powered by real Rwanda CRVS 2025 statistics." />
+    
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- 3D Canvas -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- UI Overlay for Infographics & D3 Visualizations -->
+    <div id="ui-overlay" class="ui-layer">
+      <!-- Top HUD Header -->
+      <header class="hud-header glass-panel">
+        <div class="hud-brand">
+          <div class="brand-badge">NISR CRVS 2025</div>
+          <h1 class="brand-title">Life Path <span class="brand-sub">/ Ubuzima</span></h1>
+        </div>
+
+        <!-- Station Progress Indicator -->
+        <nav class="station-nav" aria-label="Life Stations">
+          <button class="station-step active" data-scene="intro" id="btn-intro">
+            <span class="step-num">0</span>
+            <span class="step-label">Intro</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="birth" id="btn-birth">
+            <span class="step-num">1</span>
+            <span class="step-label">Birth</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="growing" id="btn-growing">
+            <span class="step-num">2</span>
+            <span class="step-label">Youth</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="marriage" id="btn-marriage">
+            <span class="step-num">3</span>
+            <span class="step-label">Marriage</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="divorce" id="btn-divorce">
+            <span class="step-num">4</span>
+            <span class="step-label">Divorce</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="death" id="btn-death">
+            <span class="step-num">5</span>
+            <span class="step-label">Death</span>
+          </button>
+          <div class="step-divider"></div>
+          <button class="station-step" data-scene="outro" id="btn-outro">
+            <span class="step-num">6</span>
+            <span class="step-label">Outro</span>
+          </button>
+        </nav>
+
+        <!-- Language Picker -->
+        <div class="lang-selector">
+          <button class="lang-btn active" data-lang="en">EN</button>
+          <button class="lang-btn" data-lang="rw">RW</button>
+          <button class="lang-btn" data-lang="fr">FR</button>
+        </div>
+      </header>
+
+      <!-- Active Station Content Overlay (Injected by scenes) -->
+      <main id="scene-container" class="scene-container"></main>
+
+      <!-- Bottom Floating Controls -->
+      <footer class="hud-footer">
+        <div class="footer-hint glass-panel">
+          <span class="hint-icon">⛰️</span>
+          <span id="station-hint" class="hint-text">14.1M Rwandans. One life path through terraced hills.</span>
+        </div>
+
+        <div class="nav-controls">
+          <button id="btn-prev" class="nav-btn glass-panel" title="Previous station">
+            ← Back
+          </button>
+          <button id="btn-next" class="nav-btn primary-btn" title="Next station">
+            Next Station →
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
