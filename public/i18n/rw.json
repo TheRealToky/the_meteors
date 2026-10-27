@@ -36,6 +36,10 @@
   "birth.tfr_statement": "Abagore bo mu Rwanda babyara abana bagera kuri 3.5 muri rusange.",
   "birth.completeness": "Iyandikwa ry'amavuko mu Rwanda ryageze kuri 92.9% muri 2025.",
   "birth.caption": "Muri 2025, impinja 356,838 zanditswe mu bitabo by'irangamimerere mu Rwanda (abahungu 180,795 n'abakobwa 176,043).",
+  "birth.count_caption": "__TODO__ Registered live births in 2025: {count}",
+  "birth.tap_to_be_born": "__TODO__ Tap anywhere or press Space to be born",
+  "birth.you_marker": "__TODO__ You are baby #{index} ({sex})",
+  "birth.aria_announcement": "__TODO__ In 2025, {count} births were registered in Rwanda. You are newborn #{index} ({sex}).",
 
   "growing.title": "Gukurira mu misozi igihumbi",
   "growing.subtitle": "Urugendo rwo gukura kuva mu bwana kugera mu bukure.",

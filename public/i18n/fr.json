@@ -36,6 +36,10 @@
   "birth.tfr_statement": "Les femmes rwandaises ont environ 3,5 enfants en moyenne.",
   "birth.completeness": "La complétude de l'enregistrement des naissances a atteint 92,9 % en 2025.",
   "birth.caption": "En 2025, exactement 356 838 naissances vivantes ont été enregistrées au Rwanda (180 795 garçons et 176 043 filles).",
+  "birth.count_caption": "__TODO__ Registered live births in 2025: {count}",
+  "birth.tap_to_be_born": "__TODO__ Tap anywhere or press Space to be born",
+  "birth.you_marker": "__TODO__ You are baby #{index} ({sex})",
+  "birth.aria_announcement": "__TODO__ In 2025, {count} births were registered in Rwanda. You are newborn #{index} ({sex}).",
 
   "growing.title": "Grandir sur les collines en terrasses",
   "growing.subtitle": "De la petite enfance à l'âge adulte à travers les paysages du Rwanda.",

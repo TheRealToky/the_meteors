@@ -8,8 +8,8 @@
   },
   "indicators": {
     "registered_births": 356838,
-    "male_births": 92,
-    "female_births": 93,
+    "male_births": 180795,
+    "female_births": 176043,
     "registration_completeness": 92.9,
     "sex_ratio_at_birth": 102.7,
     "fertility_rate": 3.5,

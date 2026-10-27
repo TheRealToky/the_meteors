@@ -36,6 +36,11 @@ export function calculateTerrainElevation(
   return rawH * (1 - config.terraceBlend) + steppedH * config.terraceBlend;
 }
 
+/**
+ * Direct height lookup helper for terrain elevation at any (x, z) coordinates.
+ */
+export const getHeightAt = calculateTerrainElevation;
+
 export function createTerrain(config: TerrainConfig = DEFAULT_CONFIG): {
   mesh: THREE.Mesh;
   getHeight: (x: number, z: number) => number;

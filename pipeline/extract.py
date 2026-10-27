@@ -81,19 +81,12 @@ def extract_intro():
 def extract_birth():
     # 1. Birth Indicators
     df_birth = pd.read_csv(os.path.join(DATA_DIR, "10_3.csv"))
-    # Pivot so indicators are indexed
-    birth_dict = {}
-    for _, row in df_birth.iterrows():
-        ind = str(row.iloc[0]).strip()
-        val_2025 = row["2025"]
-        birth_dict[ind] = val_2025
-
-    reg_total = int(birth_dict.get("Registered live births (number)", 356838))
-    reg_male = int(birth_dict.get("Males", 180795))
-    reg_female = int(birth_dict.get("Females", 176043))
-    completeness = float(birth_dict.get("Registration completeness (%)", 92.9))
-    sex_ratio = float(birth_dict.get("Sex ratio at birth", 102.7))
-    tfr = float(birth_dict.get("Total fertility rate (births per woman)", 3.5))
+    reg_total = int(df_birth.iloc[0]["2025"])
+    reg_male = int(df_birth.iloc[1]["2025"])
+    reg_female = int(df_birth.iloc[2]["2025"])
+    completeness = float(df_birth.iloc[6]["2025"])
+    sex_ratio = float(df_birth.iloc[9]["2025"])
+    tfr = float(df_birth.iloc[11]["2025"])
 
     # 2. Baby Names (Annex 2)
     df_names = pd.read_csv(os.path.join(DATA_DIR, "annex2.csv"))
