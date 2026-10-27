@@ -1,0 +1,84 @@
+# ---------- AI assistant files ----------
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# ---------- Node / Vite ----------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Python (pipeline) ----------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# ---------- Pipeline scratch output (keep /public/data and /data/raw) ----------
+/data/interim/
+/data/tmp/
+/pipeline/.cache/
+
+# ---------- Tests ----------
+playwright-report/
+test-results/
+blob-report/
+coverage/
+.nyc_output/
+
+# ---------- Secrets and local config ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Large source assets (keep only optimised GLBs in /public/models) ----------
+/assets-src/
+*.blend
+*.blend1
+*.psd
+*.kra
+*.fbx
+*.zip
+*.rar
+*.7z
+
+# ---------- Demo and screen captures ----------
+/demo/
+*.mp4
+*.mov
+*.webm
+Screen Shot*
+Screenshot*
+
+# ---------- Editors and OS ----------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Logs and temp ----------
+*.log
+logs/
+tmp/
+temp/
