@@ -49,6 +49,7 @@ export class StartScreen {
   private langBtns: Map<SupportedLocale, HTMLButtonElement> = new Map();
   private sexBtns: Map<SexChoice, HTMLButtonElement> = new Map();
   private startBtn: HTMLButtonElement | null = null;
+  private titleEl: HTMLElement | null = null;
   private subtitleEl: HTMLElement | null = null;
   private pickLangLabelEl: HTMLElement | null = null;
   private pickSexLabelEl: HTMLElement | null = null;
@@ -89,7 +90,7 @@ export class StartScreen {
 
     this.root.innerHTML = `
       <div class="start-card glass-panel" role="dialog" aria-modal="true">
-        <h1 class="start-title">${t('intro.title')}</h1>
+        <h1 class="start-title" id="start-title">${t('intro.title')}</h1>
         <p class="start-subtitle" id="start-subtitle">${t('intro.subtitle')}</p>
 
         <!-- Population pyramid slot reserved for Person A -->
@@ -159,6 +160,7 @@ export class StartScreen {
     }
 
     // Cache DOM refs
+    this.titleEl        = this.root.querySelector('#start-title');
     this.startBtn       = this.root.querySelector('#start-btn');
     this.subtitleEl     = this.root.querySelector('#start-subtitle');
     this.pickLangLabelEl = this.root.querySelector('#start-lang-label');
@@ -234,7 +236,9 @@ export class StartScreen {
 
   /** Re-render all user-visible labels without rebuilding DOM. */
   public updateLabels(): void {
-    if (this.subtitleEl)     this.subtitleEl.textContent     = t('intro.subtitle');
+    if (this.root)            this.root.setAttribute('aria-label', t('intro.title'));
+    if (this.titleEl)         this.titleEl.textContent        = t('intro.title');
+    if (this.subtitleEl)      this.subtitleEl.textContent     = t('intro.subtitle');
     if (this.pickLangLabelEl) this.pickLangLabelEl.textContent = t('intro.pick_language');
     if (this.pickSexLabelEl)  this.pickSexLabelEl.textContent  = t('intro.pick_sex');
 
@@ -263,6 +267,10 @@ export class StartScreen {
     this.langBtns.clear();
     this.sexBtns.clear();
     this.startBtn = null;
+    this.titleEl = null;
+    this.subtitleEl = null;
+    this.pickLangLabelEl = null;
+    this.pickSexLabelEl = null;
     if (this.root?.parentElement) {
       this.root.parentElement.removeChild(this.root);
     }
