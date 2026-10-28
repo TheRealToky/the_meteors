@@ -11,6 +11,7 @@ import { SceneId } from './director/types';
 import { i18n, t, onLanguageChange } from './i18n';
 import { AgeCounter } from './ui/AgeCounter';
 import { LanguagePicker } from './ui/LanguagePicker';
+import { CharacterRig } from './world/CharacterRig';
 
 // Station ages for the life path
 const SCENE_AGES: Record<SceneId, number> = {
@@ -78,7 +79,17 @@ async function bootstrap() {
   // 8. Create Camera Rail along the path
   const cameraRail = new CameraRail(camera, pathCurve);
 
-  // 9. Create Nature Props Manager (Kenney CC0 assets)
+  // 9. Create CharacterRig — walks on the rail, snapped to terrain
+  const characterRig = new CharacterRig({
+    curve: pathCurve,
+    scene,
+    sex: 'female', // updated after start-screen sex choice below
+  });
+  characterRig.setLifeStage(0); // newborn at birth station
+  // Load async; director.start() awaits first scene which triggers after this
+  characterRig.load().catch((err) => console.warn('[CharacterRig] load error:', err));
+
+  // 10. Create Nature Props Manager (Kenney CC0 assets)
   const propsManager = createPropsManager(scene, terrain.getHeight);
   propsManager.load().catch((err) => console.warn('Props load warning:', err));
 
@@ -192,6 +203,13 @@ async function bootstrap() {
   const loop = new AnimationLoop(renderer, scene, camera);
   loop.addCallback((dt, elapsed) => {
     director.update(dt, elapsed);
+
+    // Keep character at the same rail progress as the camera rail
+    characterRig.setProgress(cameraRail.getProgress());
+    characterRig.update(dt);
+
+    // Suppress the unused-variable warning on elapsed when no scene needs it
+    void elapsed;
   });
   loop.start();
 }
