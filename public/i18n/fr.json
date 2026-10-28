@@ -24,8 +24,13 @@
 
   "intro.title": "Vous êtes l'un des 14 108 217 Rwandais",
   "intro.subtitle": "Choisissez votre identité de départ pour parcourir la trajectoire de vie 2025.",
-  "intro.pick_sex": "Sélectionnez votre sexe :",
+  "intro.pick_language": "Langue :",
+  "intro.pick_sex": "Je suis :",
+  "intro.sex_male_label": "Un homme",
+  "intro.sex_female_label": "Une femme",
   "intro.start_button": "Commencer l'expérience",
+  "intro.start_disabled_hint": "__TODO__ Please choose a language and a sex to continue",
+  "intro.start_btn_ready": "Démarrer →",
   "intro.caption": "En 2025, la population rwandaise s'établit à 14,1 millions d'habitants avec un âge médian très jeune. Plus de 50 % de la population a moins de 25 ans.",
   "intro.pyramid_title": "Structure de la population par âge et par sexe (2025)",
 

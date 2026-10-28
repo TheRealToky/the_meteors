@@ -1,46 +1,62 @@
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { BaseScene } from './SceneBase';
 import { SceneContext, SceneId } from '../director/types';
-import { PopulationPyramid, PyramidData } from '../ui/PopulationPyramid';
+import { StartScreen } from '../ui/StartScreen';
+import { setLanguage } from '../i18n';
 
 export class IntroScene extends BaseScene {
   id: SceneId = 'intro';
   private group: THREE.Group = new THREE.Group();
-  private pyramidData: PyramidData | null = null;
-  private pyramid: PopulationPyramid | null = null;
+  private startScreen: StartScreen | null = null;
+  private cameraTween: gsap.core.Tween | null = null;
 
-  async load(): Promise<void> {
-    if (this.pyramidData) return;
-
-    try {
-      const response = await fetch('/data/intro.json');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} loading /data/intro.json`);
-      }
-      this.pyramidData = await response.json();
-    } catch (err) {
-      console.error('[IntroScene] Failed to load /data/intro.json:', err);
-    }
-
-    await super.load();
-  }
+  // Cached vector objects to avoid per-frame allocations
+  private targetCamPos = new THREE.Vector3();
+  private targetLookAt = new THREE.Vector3();
 
   async enter(ctx: SceneContext): Promise<void> {
     await super.enter(ctx);
     ctx.scene.add(this.group);
 
-    if (this.pyramidData && ctx.uiContainer) {
-      // Clear container and mount D3 population pyramid
-      ctx.uiContainer.innerHTML = '';
-      this.pyramid = new PopulationPyramid({
-        data: this.pyramidData,
-        container: ctx.uiContainer,
-        selectedSex: ctx.state.sex,
-        onSelectSex: (sex) => {
-          ctx.updateState({ sex });
+    // Initial overview camera position and descent
+    const cam = ctx.camera;
+    ctx.cameraRail.evaluateTargetPose(0, this.targetCamPos, this.targetLookAt);
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      cam.position.copy(this.targetCamPos);
+      cam.lookAt(this.targetLookAt);
+    } else {
+      cam.position.set(-70, 80, -60);
+      cam.lookAt(this.targetLookAt);
+      this.cameraTween = gsap.to(cam.position, {
+        x: this.targetCamPos.x,
+        y: this.targetCamPos.y,
+        z: this.targetCamPos.z,
+        duration: 2.5,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          cam.lookAt(this.targetLookAt);
         },
-        onStart: () => {
-          ctx.goToScene('birth');
+      });
+    }
+
+    if (ctx.uiContainer) {
+      ctx.uiContainer.innerHTML = '';
+      this.startScreen = new StartScreen({
+        container: ctx.uiContainer,
+        initialState: ctx.state,
+        onStart: (lang, sex) => {
+          ctx.updateState({ lang, sex });
+          setLanguage(lang).then(() => {
+            ctx.goToScene('birth');
+          });
+        },
+        onLanguageChange: async (lang) => {
+          await setLanguage(lang);
+          ctx.updateState({ lang });
+          this.startScreen?.updateLabels();
         },
       });
     }
@@ -51,29 +67,37 @@ export class IntroScene extends BaseScene {
   }
 
   onLanguageChange(): void {
-    if (this.pyramid) {
-      this.pyramid.updateLanguage();
+    if (this.startScreen) {
+      this.startScreen.updateLabels();
     }
   }
 
   async exit(): Promise<void> {
+    if (this.cameraTween) {
+      this.cameraTween.kill();
+      this.cameraTween = null;
+    }
+    if (this.startScreen) {
+      this.startScreen.dispose();
+      this.startScreen = null;
+    }
     if (this.ctx) {
       this.ctx.scene.remove(this.group);
       if (this.ctx.uiContainer) {
         this.ctx.uiContainer.innerHTML = '';
       }
     }
-    if (this.pyramid) {
-      this.pyramid.dispose();
-      this.pyramid = null;
-    }
     await super.exit();
   }
 
   dispose(): void {
-    if (this.pyramid) {
-      this.pyramid.dispose();
-      this.pyramid = null;
+    if (this.cameraTween) {
+      this.cameraTween.kill();
+      this.cameraTween = null;
+    }
+    if (this.startScreen) {
+      this.startScreen.dispose();
+      this.startScreen = null;
     }
     while (this.group.children.length > 0) {
       const child = this.group.children[0];

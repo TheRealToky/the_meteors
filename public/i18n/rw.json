@@ -24,8 +24,13 @@
 
   "intro.title": "Uri umwe mu banyarwanda 14,108,217",
   "intro.subtitle": "Hitamo umwirondoro wawe utangirireho urugendo rw'ubuzima muri 2025.",
-  "intro.pick_sex": "Hitamo igitsina:",
+  "intro.pick_language": "__TODO__ Language:",
+  "intro.pick_sex": "Ndi:",
+  "intro.sex_male_label": "__TODO__ Man",
+  "intro.sex_female_label": "__TODO__ Woman",
   "intro.start_button": "Tangira urugendo",
+  "intro.start_disabled_hint": "__TODO__ Please choose a language and a sex to continue",
+  "intro.start_btn_ready": "__TODO__ Start →",
   "intro.caption": "Muri 2025 abaturage b'u Rwanda bageze kuri miliyoni 14.1. Hejuru ya 50% bafite munsi y'imyaka 25.",
   "intro.pyramid_title": "Imiterere y'abaturage hakurikijwe imyaka n'igitsina (2025)",
 

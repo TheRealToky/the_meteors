@@ -24,8 +24,13 @@
 
   "intro.title": "You are one of 14,108,217 Rwandans",
   "intro.subtitle": "Choose your starting identity to walk the 2025 life path.",
-  "intro.pick_sex": "Select your sex:",
+  "intro.pick_language": "Language:",
+  "intro.pick_sex": "I am a:",
+  "intro.sex_male_label": "Man",
+  "intro.sex_female_label": "Woman",
   "intro.start_button": "Begin Life Path",
+  "intro.start_disabled_hint": "Please choose a language and a sex to continue",
+  "intro.start_btn_ready": "Start →",
   "intro.caption": "Rwanda's population in 2025 stands at 14.1M with a youthful median age. Over 50% of the population is under 25 years old.",
   "intro.pyramid_title": "Population Structure by Age and Sex (2025)",
 
