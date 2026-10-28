@@ -11,6 +11,8 @@ import { SceneId } from './director/types';
 import { i18n, t, onLanguageChange } from './i18n';
 import { AgeCounter } from './ui/AgeCounter';
 import { LanguagePicker } from './ui/LanguagePicker';
+import { createSkySystem } from './world/sky';
+import { createStationsManager } from './world/stations';
 import { CharacterRig } from './world/CharacterRig';
 
 // Station ages for the life path
@@ -64,33 +66,38 @@ async function bootstrap() {
   const { renderer, scene, camera } = createRenderer({ canvas });
   setupResize(camera, renderer);
 
-  // 5. Setup Lighting and Fog
-  setupLighting(scene);
+  // 5. Setup Lighting and Atmospheric Fog
+  const lighting = setupLighting(scene);
 
-  // 6. Create Procedural Rwanda Terraced Hills Terrain
+  // 6. Create Sky: Children of the Light Dreamlike Sky Dome & Particle Atmosphere
+  const skySystem = createSkySystem(scene, lighting.sunLight, lighting.hemiLight);
+
+  // 7. Create Procedural Rwanda Terraced Hills Terrain
   const terrain = createTerrain();
   scene.add(terrain.mesh);
 
-  // 7. Create Life Path Spline and 3D Ribbon Walkway
+  // 8. Create Life Path Spline and 3D Ribbon Walkway (snapped seamlessly to terrain)
   const pathCurve = createPathCurve(terrain.getHeight);
-  const pathMesh = createPathMesh(pathCurve);
+  const pathMesh = createPathMesh(pathCurve, terrain.getHeight);
   scene.add(pathMesh.mesh);
 
-  // 8. Create Camera Rail along the path
+  // 9. Create Traditional Stylized Rwandan Architecture & Station Pavilions
+  const stationsManager = createStationsManager(scene, terrain.getHeight);
+
+  // 10. Create Camera Rail along the path
   const cameraRail = new CameraRail(camera, pathCurve);
 
-  // 9. Create CharacterRig — walks on the rail, snapped to terrain
+  // 11. Create CharacterRig (Sky Traveler with animated flowing cape and glowing eyes)
   const characterRig = new CharacterRig({
     curve: pathCurve,
     scene,
-    sex: 'female', // updated after start-screen sex choice below
+    sex: 'female',
   });
   characterRig.setLifeStage(0); // newborn at birth station
-  // Load async; director.start() awaits first scene which triggers after this
   characterRig.load().catch((err) => console.warn('[CharacterRig] load error:', err));
 
-  // 10. Create Nature Props Manager (Kenney CC0 assets)
-  const propsManager = createPropsManager(scene, terrain.getHeight);
+  // 12. Create Nature Props Manager (lush smooth vegetation, flowering bushes, trees)
+  const propsManager = createPropsManager(scene, terrain.getHeight, pathCurve);
   propsManager.load().catch((err) => console.warn('Props load warning:', err));
 
   // 10. Helper to update static UI labels on language / scene changes
@@ -151,6 +158,12 @@ async function bootstrap() {
       const targetAge = SCENE_AGES[sceneId] ?? 0;
       ageCounter.setAge(targetAge, 1.5);
 
+      // Transition sky dome, sunlight, and fog to match life stage mood
+      skySystem.setMood(sceneId, 2.2);
+
+      // Smoothly scale traveler model across life stages
+      characterRig.setLifeStage(targetAge);
+
       // Update station hint & labels
       updateStaticUI(sceneId);
     },
@@ -161,10 +174,11 @@ async function bootstrap() {
     updateStaticUI(director.getCurrentSceneId());
   });
 
-  // Initial UI text sync
+  // Initial UI text sync and initial sky mood
   updateStaticUI(director.getCurrentSceneId());
+  skySystem.setMood(director.getCurrentSceneId(), 0);
 
-  // 12. Wire UI Interactions
+  // 13. Wire UI Interactions
   document.querySelectorAll('.station-step').forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetScene = (btn as HTMLElement).dataset.scene as SceneId;
@@ -197,7 +211,7 @@ async function bootstrap() {
     }
   });
 
-  // 13. Start Director and Animation Loop
+  // 14. Start Director and Animation Loop
   await director.start();
 
   const loop = new AnimationLoop(renderer, scene, camera);
@@ -208,8 +222,10 @@ async function bootstrap() {
     characterRig.setProgress(cameraRail.getProgress());
     characterRig.update(dt);
 
-    // Suppress the unused-variable warning on elapsed when no scene needs it
-    void elapsed;
+    // Update dreamlike atmospheric systems
+    skySystem.update(dt, elapsed);
+    stationsManager.update(dt, elapsed);
+    propsManager.update(dt, elapsed);
   });
   loop.start();
 }

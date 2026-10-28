@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { STATION_COORDINATES } from '../world/path';
+import { getHeightAt } from '../world/terrain';
 
 export interface StationCameraPose {
   t: number;
@@ -39,6 +40,7 @@ export class CameraRail {
 
   /**
    * Computes the ideal camera position and lookAt point for a given progress t in [0, 1].
+   * Framed cinematically to showcase both the traveler and the panoramic Rwandan landscape.
    */
   public evaluateTargetPose(
     t: number,
@@ -52,20 +54,26 @@ export class CameraRail {
     // Side normal vector (perpendicular to path)
     const sideNormal = new THREE.Vector3().crossVectors(this.pathTangent, this.up).normalize();
 
-    // Camera rides behind and above, slightly offset for cinematic 3/4 perspective
-    const elevation = 7.5;
-    const distanceBehind = 14.0;
-    const sideOffset = 4.5;
+    // Intimate, cinematic 3/4 perspective (Sky: Children of the Light style)
+    const elevation = 2.4;
+    const distanceBehind = 6.2;
+    const sideOffset = 2.2;
 
     outCamPos.copy(this.pathPoint)
       .addScaledVector(this.pathTangent, -distanceBehind)
       .addScaledVector(sideNormal, sideOffset);
-    outCamPos.y += elevation;
+    outCamPos.y = this.pathPoint.y + elevation;
 
-    // Look slightly ahead of the character position
+    // Soft terrain clearance: avoid clipping through local slope while preserving horizon
+    const terrainHeight = getHeightAt(outCamPos.x, outCamPos.z);
+    if (outCamPos.y < terrainHeight + 1.2) {
+      outCamPos.y = terrainHeight + 1.2;
+    }
+
+    // Look forward along the path towards the rolling horizon
     outLookAt.copy(this.pathPoint)
-      .addScaledVector(this.pathTangent, 4.0);
-    outLookAt.y += 1.8;
+      .addScaledVector(this.pathTangent, 4.8);
+    outLookAt.y = this.pathPoint.y + 1.4;
   }
 
   public setProgress(t: number): void {

@@ -51,17 +51,33 @@ export function createPathCurve(getHeight: (x: number, z: number) => number): TH
 
 export function createPathMesh(
   curve: THREE.CatmullRomCurve3,
-  segments = 250,
-  pathWidth = 2.4
+  getHeight?: (x: number, z: number) => number,
+  segments = 360,
+  pathWidth = 3.2
 ): { mesh: THREE.Mesh; dispose: () => void } {
-  // Generate a ribbon geometry along the curve
+  // Generate an organic 5-strip crowned roadway along the curve
+  // (Left Outer, Left Inner, Center, Right Inner, Right Outer)
+  // Outer edges melt seamlessly into terrace grass; center is warm sunlit stone/sand
   const geom = new THREE.BufferGeometry();
-  const vertexCount = (segments + 1) * 2;
+  const ringCount = segments + 1;
+  const vertsPerRing = 5;
+  const vertexCount = ringCount * vertsPerRing;
   const positions = new Float32Array(vertexCount * 3);
+  const colors = new Float32Array(vertexCount * 3);
   const uvs = new Float32Array(vertexCount * 2);
   const indices: number[] = [];
 
   const up = new THREE.Vector3(0, 1, 0);
+
+  // Painterly Rwandan pathway colors
+  const cCenter   = new THREE.Color(0xdcb582); // Sun-baked clay & sandstone
+  const cShoulder = new THREE.Color(0xa77850); // Fertile reddish-ochre road shoulder
+  const cEdge     = new THREE.Color(0x6ca458); // Melts into terrace grass
+
+  const halfW = pathWidth * 0.5;
+  const offsets = [-1.0, -0.5, 0.0, 0.5, 1.0];
+  const colorPalette = [cEdge, cShoulder, cCenter, cShoulder, cEdge];
+  const heightOffsets = [0.03, 0.08, 0.12, 0.08, 0.03];
 
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -69,46 +85,53 @@ export function createPathMesh(
     const tangent = curve.getTangentAt(t).normalize();
     const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
 
-    // Left vertex
-    const pLeft = pt.clone().addScaledVector(normal, -pathWidth * 0.5);
-    // Right vertex
-    const pRight = pt.clone().addScaledVector(normal, pathWidth * 0.5);
+    const ringBase = i * vertsPerRing;
 
-    const vIdx = i * 2;
-    positions[vIdx * 3]     = pLeft.x;
-    positions[vIdx * 3 + 1] = pLeft.y;
-    positions[vIdx * 3 + 2] = pLeft.z;
+    for (let j = 0; j < vertsPerRing; j++) {
+      const frac = offsets[j];
+      const p = pt.clone().addScaledVector(normal, frac * halfW);
+      const groundH = getHeight ? getHeight(p.x, p.z) : pt.y;
+      const finalY = groundH + heightOffsets[j];
 
-    positions[(vIdx + 1) * 3]     = pRight.x;
-    positions[(vIdx + 1) * 3 + 1] = pRight.y;
-    positions[(vIdx + 1) * 3 + 2] = pRight.z;
+      const vIdx = ringBase + j;
+      positions[vIdx * 3 + 0] = p.x;
+      positions[vIdx * 3 + 1] = finalY;
+      positions[vIdx * 3 + 2] = p.z;
 
-    uvs[vIdx * 2]     = 0;
-    uvs[vIdx * 2 + 1] = t * 20;
-    uvs[(vIdx + 1) * 2]     = 1;
-    uvs[(vIdx + 1) * 2 + 1] = t * 20;
+      const c = colorPalette[j];
+      colors[vIdx * 3 + 0] = c.r;
+      colors[vIdx * 3 + 1] = c.g;
+      colors[vIdx * 3 + 2] = c.b;
+
+      uvs[vIdx * 2 + 0] = (frac + 1.0) * 0.5;
+      uvs[vIdx * 2 + 1] = t * 28;
+    }
 
     if (i < segments) {
-      const a = vIdx;
-      const b = vIdx + 1;
-      const c = vIdx + 2;
-      const d = vIdx + 3;
-      indices.push(a, b, c);
-      indices.push(b, d, c);
+      for (let j = 0; j < vertsPerRing - 1; j++) {
+        const row1_a = ringBase + j;
+        const row1_b = ringBase + j + 1;
+        const row2_a = ringBase + vertsPerRing + j;
+        const row2_b = ringBase + vertsPerRing + j + 1;
+
+        indices.push(row1_a, row2_a, row1_b);
+        indices.push(row1_b, row2_a, row2_b);
+      }
     }
   }
 
   geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   geom.setIndex(indices);
   geom.computeVertexNormals();
 
-  // Warm clay/beaten earth path material
+  // Velvety smooth path material (Sky: Children of the Light aesthetic)
   const material = new THREE.MeshStandardMaterial({
-    color: 0xc89d6e,
-    roughness: 0.95,
+    vertexColors: true,
+    roughness: 0.82,
     metalness: 0.0,
-    flatShading: true,
+    flatShading: false,
   });
 
   const mesh = new THREE.Mesh(geom, material);

@@ -22,5 +22,9 @@ All 3D assets in this project are licensed under open licenses.
   - `public/models/character-male-a.glb`
   - `public/models/character-female-a.glb`
 
-## Terrain & Shaders
-- Procedural simplex noise stepped terrace shader: Custom procedural generation (zero external download).
+## Terrain, Shaders & Procedural Systems
+- **Procedural Terraced Hills Shader**: Custom procedural generation with smooth agricultural terrace S-curves and Rwandan highland watercolor palette (zero external download).
+- **Procedural Ethereal Sky Dome & Floating Motes**: Custom GLSL shader dome and GPU particle system inspired by *Sky: Children of the Light*.
+- **Traditional Rwandan Architectural Pavilions**: Procedural *Inzu y'Umwami* thatched conical pavilions and ancient stone cairn waymarkers with soft glowing lanterns.
+- **Stylized Traveler Rig**: Custom stylized *Sky: Children of the Light* traveler with procedural cloth-wave animated mantle, cowl, and glowing eyes.
+- **5-Strip Crowned Walkway**: Procedurally draped, organic crowned road ribbon with soft meadow edge blending.
