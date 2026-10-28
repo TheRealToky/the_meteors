@@ -69,14 +69,15 @@ export function createTerrain(config: TerrainConfig = DEFAULT_CONFIG): {
   // Prepare vertex colors for painterly, dreamy Rwandan landscape
   const colors = new Float32Array(count * 3);
 
-  // Curated Sky-inspired Rwandan palette:
-  // Deep misted valleys, vibrant tea terraces, warm ochre banks, golden-lit ridges
-  const cValley    = new THREE.Color(0x356a38); // Deep valley green
-  const cTerrace   = new THREE.Color(0x56a44f); // Rich emerald tea terrace
-  const cMeadow    = new THREE.Color(0x76b864); // Sunlit grassy knoll
-  const cRidge     = new THREE.Color(0x92cb7c); // Golden-tinged ridge
-  const cTerracotta= new THREE.Color(0xa66f46); // Warm volcanic soil on terrace banks
-  const cHighPeak  = new THREE.Color(0xa7d890); // Ethereal misted peak
+  // Curated Sky-inspired Rwandan palette inspired by the reference image:
+  // Luminous golden meadow slopes, emerald tea terraces, warm ochre banks, sunny ridges
+  const cValley    = new THREE.Color(0x326132); // Deep lush valley green
+  const cTerrace   = new THREE.Color(0x56a642); // Vibrant emerald tea terrace
+  const cMeadow    = new THREE.Color(0x7bc64c); // Warm sunlit grass
+  const cGoldenHill= new THREE.Color(0xd2b048); // Golden sun-drenched meadow slopes (from reference image)
+  const cRidge     = new THREE.Color(0x9fd268); // Luminous sunny ridge
+  const cTerracotta= new THREE.Color(0xb26c3e); // Rich volcanic Rwandan soil on terrace banks
+  const cHighPeak  = new THREE.Color(0xaed786); // Ethereal golden-green misted peak
 
   const tempColor = new THREE.Color();
 
@@ -94,18 +95,22 @@ export function createTerrain(config: TerrainConfig = DEFAULT_CONFIG): {
     const stepFrac = Math.abs((y / config.terraceStep) % 1);
     const isRiser = stepFrac > 0.42 && stepFrac < 0.72;
 
-    if (isRiser && normH > 0.18 && normH < 0.82) {
+    if (isRiser && normH > 0.16 && normH < 0.85) {
       // Warm terracotta soil on terrace edges, softly blended
-      const blend = Math.sin((stepFrac - 0.42) / 0.3 * Math.PI);
-      tempColor.lerpColors(cTerrace, cTerracotta, blend * 0.75);
-    } else if (normH < 0.28) {
-      tempColor.lerpColors(cValley, cTerrace, normH / 0.28);
-    } else if (normH < 0.65) {
-      tempColor.lerpColors(cTerrace, cMeadow, (normH - 0.28) / 0.37);
-    } else if (normH < 0.88) {
-      tempColor.lerpColors(cMeadow, cRidge, (normH - 0.65) / 0.23);
+      const blend = Math.sin(((stepFrac - 0.42) / 0.3) * Math.PI);
+      tempColor.lerpColors(cTerrace, cTerracotta, blend * 0.78);
+    } else if (normH < 0.22) {
+      tempColor.lerpColors(cValley, cTerrace, normH / 0.22);
+    } else if (normH < 0.52) {
+      // Blend lush green into warm sunlit meadow
+      tempColor.lerpColors(cTerrace, cMeadow, (normH - 0.22) / 0.3);
+    } else if (normH < 0.76) {
+      // Golden sun-drenched hill slopes matching the reference image
+      tempColor.lerpColors(cMeadow, cGoldenHill, (normH - 0.52) / 0.24);
+    } else if (normH < 0.90) {
+      tempColor.lerpColors(cGoldenHill, cRidge, (normH - 0.76) / 0.14);
     } else {
-      tempColor.lerpColors(cRidge, cHighPeak, (normH - 0.88) / 0.12);
+      tempColor.lerpColors(cRidge, cHighPeak, (normH - 0.90) / 0.10);
     }
 
     colors[i * 3 + 0] = tempColor.r;

@@ -5,6 +5,7 @@ import { setupLighting } from './world/lighting';
 import { createTerrain } from './world/terrain';
 import { createPathCurve, createPathMesh } from './world/path';
 import { createPropsManager } from './world/props';
+import { createSettlementsManager } from './world/settlements';
 import { CameraRail } from './director/cameraRail';
 import { Director } from './director/director';
 import { SceneId } from './director/types';
@@ -97,9 +98,13 @@ async function bootstrap() {
   characterRig.setLifeStage(0); // newborn at birth station
   characterRig.load().catch((err) => console.warn('[CharacterRig] load error:', err));
 
-  // 12. Create Nature Props Manager (lush smooth vegetation, flowering bushes, trees)
+  // 12. Create Nature Props Manager (lush dense vegetation, mushrooms, grass, autumn trees, breeze ribbons)
   const propsManager = createPropsManager(scene, terrain.getHeight, pathCurve);
   propsManager.load().catch((err) => console.warn('Props load warning:', err));
+
+  // 13. Create Rural Rwandan Settlements Manager (homesteads, paved roads, transport vehicles, street props)
+  const settlementsManager = createSettlementsManager(scene, terrain.getHeight);
+  settlementsManager.load().catch((err) => console.warn('Settlements load warning:', err));
 
   // 10. Helper to update static UI labels on language / scene changes
   function updateStaticUI(currentScene: SceneId) {
@@ -227,6 +232,7 @@ async function bootstrap() {
     skySystem.update(dt, elapsed);
     stationsManager.update(dt, elapsed);
     propsManager.update(dt, elapsed);
+    settlementsManager.update(dt, elapsed);
   });
   loop.start();
 }
