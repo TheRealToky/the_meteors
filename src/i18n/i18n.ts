@@ -85,6 +85,10 @@ class I18nManager {
   }
 
   public async setLanguage(locale: SupportedLocale): Promise<void> {
+    if (this.currentLocale === locale && this.dictionaries[locale]) {
+      return;
+    }
+
     if (!this.dictionaries[locale]) {
       await this.loadLocale(locale);
     }

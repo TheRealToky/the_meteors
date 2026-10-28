@@ -29,9 +29,6 @@ export class LanguagePicker {
 
     this.unregisterListener = onLanguageChange((newLang) => {
       this.syncActiveButton(newLang);
-      if (this.onChangeCallback) {
-        this.onChangeCallback(newLang);
-      }
     });
   }
 
@@ -47,6 +44,9 @@ export class LanguagePicker {
         const targetLang = btn.dataset.lang as SupportedLocale;
         if (targetLang && targetLang !== getLanguage()) {
           setLanguage(targetLang);
+          if (this.onChangeCallback) {
+            this.onChangeCallback(targetLang);
+          }
         }
       });
     });

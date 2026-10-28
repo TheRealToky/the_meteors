@@ -183,6 +183,7 @@ export class BirthCloud {
     const pixelRatio = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2.0);
 
     this.cloudMaterial = new THREE.ShaderMaterial({
+      vertexColors: true,
       uniforms: {
         uTime: { value: 0.0 },
         uBaseSize: { value: 16.0 },
