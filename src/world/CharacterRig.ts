@@ -1,13 +1,14 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getHeightAt } from './terrain';
 
 // Visual life-stage scale mapping: newborn → youth → adult → elder
 const STAGE_SCALE: Array<{ maxAge: number; scale: number }> = [
-  { maxAge: 2,   scale: 0.72 }, // infant / newborn (clear, charming presence)
-  { maxAge: 12,  scale: 0.88 }, // child / youth traveler
-  { maxAge: 25,  scale: 1.05 }, // young adult
-  { maxAge: 60,  scale: 1.08 }, // full adult
-  { maxAge: 120, scale: 0.98 }, // elder traveler
+  { maxAge: 2,   scale: 0.65 }, // infant / newborn (small charming presence)
+  { maxAge: 12,  scale: 0.82 }, // child / youth traveler
+  { maxAge: 25,  scale: 1.0 },  // young adult
+  { maxAge: 60,  scale: 1.04 }, // full adult
+  { maxAge: 120, scale: 0.94 }, // elder traveler
 ];
 
 function scaleForAge(age: number): number {
@@ -25,8 +26,9 @@ export interface CharacterRigConfig {
 
 /**
  * A stylized 3D traveler inspired by the visual language of Sky: Children of the Light.
- * Features a charming silhouette with a flowing, animated celestial cape,
- * soft cowl with glowing eyes, smooth procedural walk/idle cycles, and life-stage transitions.
+ * Uses KayKit Rogue Hooded character with Rig_Medium skeletal animations (Walking, Idle, Death),
+ * signature celestial glowing eyes, graceful life-stage transitions,
+ * and glowing golden footstep motes that float along the Rwandan trail.
  */
 export class CharacterRig {
   private curve: THREE.CatmullRomCurve3;
@@ -35,9 +37,16 @@ export class CharacterRig {
 
   private root: THREE.Group = new THREE.Group();
   private modelRoot: THREE.Group = new THREE.Group();
-  private bodyGroup: THREE.Group = new THREE.Group();
+  private proceduralBodyGroup: THREE.Group = new THREE.Group();
 
-  // Procedural limbs & cape for fluid physically convincing motion
+  // GLTF Animated Character Model & Mixer
+  private mixer: THREE.AnimationMixer | null = null;
+  private idleAction: THREE.AnimationAction | null = null;
+  private walkAction: THREE.AnimationAction | null = null;
+  private deathAction: THREE.AnimationAction | null = null;
+  private currentAction: THREE.AnimationAction | null = null;
+
+  // Procedural fallback limbs & cape
   private capeMesh: THREE.Mesh | null = null;
   private capeOriginalPositions: Float32Array | null = null;
   private leftArm: THREE.Group = new THREE.Group();
@@ -50,9 +59,11 @@ export class CharacterRig {
   private footstepGroup: THREE.Points | null = null;
   private footstepPositions: Float32Array | null = null;
   private footstepAlphas: Float32Array | null = null;
+  private footstepSpawnIndex: number = 0;
+  private footstepTimer: number = 0;
 
   // Clean disposal tracking
-  private disposables: Array<THREE.BufferGeometry | THREE.Material> = [];
+  private disposables: Array<THREE.BufferGeometry | THREE.Material | THREE.Texture> = [];
 
   private isLoaded: boolean = false;
   private progress: number = 0;
@@ -70,33 +81,142 @@ export class CharacterRig {
     this.scene = config.scene;
     this.sex   = config.sex ?? 'female';
 
-    this.modelRoot.add(this.bodyGroup);
     this.root.add(this.modelRoot);
     this.scene.add(this.root);
   }
 
   public async load(): Promise<void> {
-    this.buildSkyTraveler();
+    const gltfLoaded = await this.loadGLTFCharacter();
+
+    if (!gltfLoaded) {
+      // Graceful fallback to procedural Sky traveler
+      this.buildSkyTravelerFallback();
+    }
+
     this.buildFootstepTrail();
     this.isLoaded = true;
     this.applyProgress(this.progress, true);
   }
 
   /**
-   * Constructs the stylized Sky: Children of the Light traveler.
+   * Loads the KayKit Rogue Hooded model and binds skeletal animations from Rig_Medium.
    */
-  private buildSkyTraveler(): void {
-    const isFemale = this.sex === 'female';
+  private async loadGLTFCharacter(): Promise<boolean> {
+    const loader = new GLTFLoader();
 
-    // Curated Sky: Children of the Light Color Palette:
-    // Female: Warm sunrise coral robe with flowing sunset amber/gold cape
-    // Male: Celestial twilight sapphire robe with ethereal sky blue cape
+    try {
+      // 1. Load Character Mesh and Rig Animations concurrently
+      const [charGltf, animMoveGltf, animGenGltf] = await Promise.all([
+        loader.loadAsync('/models/characters/Rogue_Hooded.glb'),
+        loader.loadAsync('/models/characters/Rig_Medium_MovementBasic.glb'),
+        loader.loadAsync('/models/characters/Rig_Medium_General.glb'),
+      ]);
+
+      const characterScene = charGltf.scene;
+      // Scale model to ~1.7m tall (KayKit base height is ~2.17m)
+      characterScene.scale.setScalar(0.78);
+
+      const isFemale = this.sex === 'female';
+      const eyeGlowColor = isFemale ? 0xfff6cf : 0xe0f7ff;
+
+      // Enhance materials for soft stylized look
+      characterScene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+
+          if (child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach((mat) => {
+              if (mat instanceof THREE.MeshStandardMaterial) {
+                mat.roughness = 0.72;
+                mat.metalness = 0.04;
+                if (mat.map) {
+                  mat.map.colorSpace = THREE.SRGBColorSpace;
+                }
+              }
+              this.disposables.push(mat);
+            });
+          }
+          if (child.geometry) {
+            child.geometry.computeVertexNormals();
+            this.disposables.push(child.geometry);
+          }
+        }
+      });
+
+      // Find the head bone to attach glowing celestial eyes
+      let headBone: THREE.Object3D | null = null;
+      characterScene.traverse((node) => {
+        if (node.name === 'head') {
+          headBone = node;
+        }
+      });
+
+      if (headBone) {
+        const eyeGeo = new THREE.SphereGeometry(0.042, 8, 8);
+        this.disposables.push(eyeGeo);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: eyeGlowColor });
+        this.disposables.push(eyeMat);
+
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.065, 0.09, 0.19);
+        (headBone as THREE.Object3D).add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.065, 0.09, 0.19);
+        (headBone as THREE.Object3D).add(rightEye);
+      }
+
+      // Setup Animation Mixer
+      this.mixer = new THREE.AnimationMixer(characterScene);
+
+      // Find clips
+      const moveAnimations = animMoveGltf.animations || [];
+      const genAnimations = animGenGltf.animations || [];
+
+      const walkClip = moveAnimations.find((a) => a.name === 'Walking_B' || a.name === 'Walking_A') || moveAnimations[0];
+      const idleClip = genAnimations.find((a) => a.name === 'Idle_A' || a.name === 'Idle_B') || genAnimations[0];
+      const deathClip = genAnimations.find((a) => a.name === 'Death_A' || a.name === 'Death_B');
+
+      if (walkClip) {
+        this.walkAction = this.mixer.clipAction(walkClip);
+        this.walkAction.setEffectiveTimeScale(1.05);
+      }
+      if (idleClip) {
+        this.idleAction = this.mixer.clipAction(idleClip);
+        this.idleAction.setEffectiveTimeScale(0.85);
+      }
+      if (deathClip) {
+        this.deathAction = this.mixer.clipAction(deathClip);
+        this.deathAction.setLoop(THREE.LoopOnce, 1);
+        this.deathAction.clampWhenFinished = true;
+      }
+
+      // Initial state: play idle
+      if (this.idleAction) {
+        this.idleAction.play();
+        this.currentAction = this.idleAction;
+      }
+
+      this.modelRoot.add(characterScene);
+      return true;
+    } catch (err) {
+      console.warn('[CharacterRig] Failed to load GLTF character model, falling back to procedural:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Procedural Sky: Children of the Light traveler fallback.
+   */
+  private buildSkyTravelerFallback(): void {
+    const isFemale = this.sex === 'female';
     const robeColor = isFemale ? 0xe58b76 : 0x4a7eb0;
     const capeColor = isFemale ? 0xdf6a44 : 0x2e5f96;
     const capeTrimColor = isFemale ? 0xffdf80 : 0x8ce3ff;
     const eyeGlowColor  = isFemale ? 0xfff6cf : 0xe0f7ff;
 
-    // Materials
     const robeMat = new THREE.MeshStandardMaterial({
       color: robeColor,
       roughness: 0.72,
@@ -106,16 +226,14 @@ export class CharacterRig {
     this.disposables.push(robeMat);
 
     const cowlMat = new THREE.MeshStandardMaterial({
-      color: 0x282329, // Soft charcoal mask/cowl interior
+      color: 0x282329,
       roughness: 0.85,
       metalness: 0.0,
       flatShading: false,
     });
     this.disposables.push(cowlMat);
 
-    const eyeMat = new THREE.MeshBasicMaterial({
-      color: eyeGlowColor,
-    });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: eyeGlowColor });
     this.disposables.push(eyeMat);
 
     const capeMat = new THREE.MeshStandardMaterial({
@@ -134,21 +252,21 @@ export class CharacterRig {
     this.disposables.push(trimMat);
 
     const skinMat = new THREE.MeshStandardMaterial({
-      color: 0x9e6c4c, // Warm Rwandan skin tone
+      color: 0x9e6c4c,
       roughness: 0.8,
       metalness: 0.0,
       flatShading: false,
     });
     this.disposables.push(skinMat);
 
-    // 1. Torso / Robe Body
+    // 1. Torso
     const torsoGeo = new THREE.CylinderGeometry(0.24, 0.38, 0.95, 16);
     this.disposables.push(torsoGeo);
     const torsoMesh = new THREE.Mesh(torsoGeo, robeMat);
     torsoMesh.position.y = 0.85;
     torsoMesh.castShadow = true;
     torsoMesh.receiveShadow = true;
-    this.bodyGroup.add(torsoMesh);
+    this.proceduralBodyGroup.add(torsoMesh);
 
     // 2. Head with Cowl & Glowing Eyes
     const headGeo = new THREE.SphereGeometry(0.26, 16, 16);
@@ -156,7 +274,6 @@ export class CharacterRig {
     const headMesh = new THREE.Mesh(headGeo, robeMat);
     headMesh.castShadow = true;
 
-    // Soft dark face mask
     const faceGeo = new THREE.SphereGeometry(0.22, 12, 12, 0, Math.PI);
     this.disposables.push(faceGeo);
     const faceMesh = new THREE.Mesh(faceGeo, cowlMat);
@@ -164,7 +281,6 @@ export class CharacterRig {
     faceMesh.position.set(0, 0, 0.06);
     headMesh.add(faceMesh);
 
-    // Glowing eyes (Sky signature celestial dots)
     const eyeGeo = new THREE.SphereGeometry(0.035, 8, 8);
     this.disposables.push(eyeGeo);
 
@@ -178,67 +294,58 @@ export class CharacterRig {
 
     this.headGroup.position.set(0, 1.48, 0);
     this.headGroup.add(headMesh);
-    this.bodyGroup.add(this.headGroup);
+    this.proceduralBodyGroup.add(this.headGroup);
 
-    // 3. Flowing Signature Cape (Multi-segmented cloth mesh that ripples in wind)
+    // 3. Flowing Cape
     const capeWidth = 0.95;
     const capeLength = 1.15;
-    const capeSegW = 10;
-    const capeSegH = 14;
-    const capeGeo = new THREE.PlaneGeometry(capeWidth, capeLength, capeSegW, capeSegH);
+    const capeGeo = new THREE.PlaneGeometry(capeWidth, capeLength, 10, 14);
     this.disposables.push(capeGeo);
 
-    // Arch the top of the cape over shoulders
     const posAttr = capeGeo.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       const u = posAttr.getX(i);
       const v = posAttr.getY(i);
-      // Gentle conical curve around back
       const curveZ = -Math.pow(u / (capeWidth * 0.5), 2) * 0.12;
       posAttr.setZ(i, curveZ);
-      // Taper at shoulders
       if (v > 0) {
         posAttr.setX(i, u * (0.6 + (0.4 * (1.0 - v / (capeLength * 0.5)))));
       }
     }
     capeGeo.computeVertexNormals();
-
     this.capeOriginalPositions = new Float32Array(posAttr.array);
 
     this.capeMesh = new THREE.Mesh(capeGeo, capeMat);
     this.capeMesh.position.set(0, 1.25, -0.22);
-    this.capeMesh.rotation.x = 0.15; // Sweep back naturally
+    this.capeMesh.rotation.x = 0.15;
     this.capeMesh.castShadow = true;
-    this.bodyGroup.add(this.capeMesh);
+    this.proceduralBodyGroup.add(this.capeMesh);
 
-    // Glowing trim hem along bottom of cape
     const trimGeo = new THREE.PlaneGeometry(capeWidth * 0.95, 0.06);
     this.disposables.push(trimGeo);
     const trimMesh = new THREE.Mesh(trimGeo, trimMat);
     trimMesh.position.set(0, -capeLength * 0.48, 0.02);
     this.capeMesh.add(trimMesh);
 
-    // 4. Stylized Arms
+    // 4. Arms
     const armGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.55, 10);
     this.disposables.push(armGeo);
 
-    // Left Arm
     const leftArmMesh = new THREE.Mesh(armGeo, robeMat);
     leftArmMesh.position.y = -0.24;
     leftArmMesh.castShadow = true;
     this.leftArm.position.set(-0.32, 1.25, 0);
     this.leftArm.add(leftArmMesh);
-    this.bodyGroup.add(this.leftArm);
+    this.proceduralBodyGroup.add(this.leftArm);
 
-    // Right Arm
     const rightArmMesh = new THREE.Mesh(armGeo, robeMat);
     rightArmMesh.position.y = -0.24;
     rightArmMesh.castShadow = true;
     this.rightArm.position.set(0.32, 1.25, 0);
     this.rightArm.add(rightArmMesh);
-    this.bodyGroup.add(this.rightArm);
+    this.proceduralBodyGroup.add(this.rightArm);
 
-    // 5. Stylized Legs
+    // 5. Legs
     const legGeo = new THREE.CylinderGeometry(0.07, 0.055, 0.5, 10);
     this.disposables.push(legGeo);
 
@@ -247,27 +354,29 @@ export class CharacterRig {
     leftLegMesh.castShadow = true;
     this.leftLeg.position.set(-0.13, 0.45, 0);
     this.leftLeg.add(leftLegMesh);
-    this.bodyGroup.add(this.leftLeg);
+    this.proceduralBodyGroup.add(this.leftLeg);
 
     const rightLegMesh = new THREE.Mesh(legGeo, skinMat);
     rightLegMesh.position.y = -0.22;
     rightLegMesh.castShadow = true;
     this.rightLeg.position.set(0.13, 0.45, 0);
     this.rightLeg.add(rightLegMesh);
-    this.bodyGroup.add(this.rightLeg);
+    this.proceduralBodyGroup.add(this.rightLeg);
+
+    this.modelRoot.add(this.proceduralBodyGroup);
   }
 
   /**
    * Footstep glowing dust motes that float behind the character.
    */
   private buildFootstepTrail(): void {
-    const count = 35;
+    const count = 40;
     this.footstepPositions = new Float32Array(count * 3);
     this.footstepAlphas    = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
       this.footstepPositions[i * 3 + 0] = 0;
-      this.footstepPositions[i * 3 + 1] = -100; // hidden until spawned
+      this.footstepPositions[i * 3 + 1] = -100; // hidden initially
       this.footstepPositions[i * 3 + 2] = 0;
       this.footstepAlphas[i] = 0;
     }
@@ -281,7 +390,7 @@ export class CharacterRig {
 
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uColor: { value: new THREE.Color(0xfff1cc) },
+        uColor: { value: new THREE.Color(0xffe6a3) },
         uPixelRatio: { value: pixelRatio },
       },
       vertexShader: `
@@ -292,7 +401,7 @@ export class CharacterRig {
           vAlpha = aAlpha;
           vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPos;
-          gl_PointSize = (22.0 / -mvPos.z) * uPixelRatio * 30.0;
+          gl_PointSize = (26.0 / -mvPos.z) * uPixelRatio * 28.0;
         }
       `,
       fragmentShader: `
@@ -329,7 +438,35 @@ export class CharacterRig {
   }
 
   public setMoving(moving: boolean): void {
+    if (this.isMoving === moving) return;
     this.isMoving = moving;
+
+    // Cross-fade animation actions
+    if (this.mixer) {
+      if (moving && this.walkAction) {
+        if (this.currentAction && this.currentAction !== this.walkAction) {
+          this.currentAction.fadeOut(0.2);
+        }
+        this.walkAction.reset().fadeIn(0.2).play();
+        this.currentAction = this.walkAction;
+      } else if (!moving && this.idleAction) {
+        if (this.currentAction && this.currentAction !== this.idleAction) {
+          this.currentAction.fadeOut(0.25);
+        }
+        this.idleAction.reset().fadeIn(0.25).play();
+        this.currentAction = this.idleAction;
+      }
+    }
+  }
+
+  public playDeath(): void {
+    if (this.mixer && this.deathAction) {
+      if (this.currentAction) {
+        this.currentAction.fadeOut(0.4);
+      }
+      this.deathAction.reset().fadeIn(0.4).play();
+      this.currentAction = this.deathAction;
+    }
   }
 
   public setLifeStage(age: number): void {
@@ -343,69 +480,103 @@ export class CharacterRig {
   public update(dt: number): void {
     if (!this.isLoaded) return;
 
-    if (this.isMoving) {
-      this.walkCycleTime += dt * 8.5;
+    // 1. Update Skeletal Animation or Procedural Stride
+    if (this.mixer) {
+      this.mixer.update(dt);
     } else {
-      this.walkCycleTime += dt * 2.2;
-    }
-
-    const t = this.walkCycleTime;
-
-    // 1. Procedural Walk & Idle Motion
-    if (this.isMoving) {
-      // Natural walking stride
-      const stride = Math.sin(t);
-      this.leftLeg.rotation.x  = stride * 0.55;
-      this.rightLeg.rotation.x = -stride * 0.55;
-
-      this.leftArm.rotation.x  = -stride * 0.45;
-      this.rightArm.rotation.x = stride * 0.45;
-
-      // Vertical bobbing
-      this.bodyGroup.position.y = Math.abs(Math.sin(t)) * 0.08;
-      // Gentle torso sway
-      this.bodyGroup.rotation.y = Math.sin(t * 0.5) * 0.05;
-      this.headGroup.rotation.x = -0.05;
-    } else {
-      // Gentle breathing idle
-      const breath = Math.sin(t);
-      this.leftLeg.rotation.x = THREE.MathUtils.lerp(this.leftLeg.rotation.x, 0, 0.15);
-      this.rightLeg.rotation.x = THREE.MathUtils.lerp(this.rightLeg.rotation.x, 0, 0.15);
-      this.leftArm.rotation.x = THREE.MathUtils.lerp(this.leftArm.rotation.x, 0.1, 0.15);
-      this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0.1, 0.15);
-
-      this.bodyGroup.position.y = breath * 0.025;
-      this.bodyGroup.rotation.y = THREE.MathUtils.lerp(this.bodyGroup.rotation.y, 0, 0.1);
-      this.headGroup.rotation.x = THREE.MathUtils.lerp(this.headGroup.rotation.x, breath * 0.02, 0.1);
-    }
-
-    // 2. Cloth Wave Simulation on Cape (Sky: Children of the Light signature flutter)
-    if (this.capeMesh && this.capeOriginalPositions) {
-      const posAttr = this.capeMesh.geometry.attributes.position as THREE.BufferAttribute;
-      const posArr = posAttr.array as Float32Array;
-      const count = posAttr.count;
-
-      const waveSpeed = this.isMoving ? 12.0 : 3.5;
-      const waveFreq  = this.isMoving ? 4.5 : 2.5;
-      const waveAmp   = this.isMoving ? 0.22 : 0.06;
-      const liftAngle = this.isMoving ? 0.38 : 0.08;
-
-      for (let i = 0; i < count; i++) {
-        const origX = this.capeOriginalPositions[i * 3 + 0];
-        const origY = this.capeOriginalPositions[i * 3 + 1];
-        const origZ = this.capeOriginalPositions[i * 3 + 2];
-
-        // Free bottom of cape lifts and ripples; pinned top stays near shoulders
-        const normY = THREE.MathUtils.clamp(1.0 - (origY + 0.6) / 1.2, 0.0, 1.0);
-        const wave = Math.sin(t * waveSpeed * 0.5 + normY * waveFreq) * waveAmp * normY;
-        const lift = normY * liftAngle;
-
-        posArr[i * 3 + 0] = origX;
-        posArr[i * 3 + 1] = origY;
-        posArr[i * 3 + 2] = origZ - wave - lift;
+      // Procedural walk/idle fallback
+      if (this.isMoving) {
+        this.walkCycleTime += dt * 8.5;
+      } else {
+        this.walkCycleTime += dt * 2.2;
       }
-      posAttr.needsUpdate = true;
-      this.capeMesh.geometry.computeVertexNormals();
+
+      const t = this.walkCycleTime;
+      if (this.isMoving) {
+        const stride = Math.sin(t);
+        this.leftLeg.rotation.x  = stride * 0.55;
+        this.rightLeg.rotation.x = -stride * 0.55;
+        this.leftArm.rotation.x  = -stride * 0.45;
+        this.rightArm.rotation.x = stride * 0.45;
+        this.proceduralBodyGroup.position.y = Math.abs(Math.sin(t)) * 0.08;
+        this.proceduralBodyGroup.rotation.y = Math.sin(t * 0.5) * 0.05;
+        this.headGroup.rotation.x = -0.05;
+      } else {
+        const breath = Math.sin(t);
+        this.leftLeg.rotation.x = THREE.MathUtils.lerp(this.leftLeg.rotation.x, 0, 0.15);
+        this.rightLeg.rotation.x = THREE.MathUtils.lerp(this.rightLeg.rotation.x, 0, 0.15);
+        this.leftArm.rotation.x = THREE.MathUtils.lerp(this.leftArm.rotation.x, 0.1, 0.15);
+        this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0.1, 0.15);
+        this.proceduralBodyGroup.position.y = breath * 0.025;
+        this.proceduralBodyGroup.rotation.y = THREE.MathUtils.lerp(this.proceduralBodyGroup.rotation.y, 0, 0.1);
+        this.headGroup.rotation.x = THREE.MathUtils.lerp(this.headGroup.rotation.x, breath * 0.02, 0.1);
+      }
+
+      // Cape flutter simulation
+      if (this.capeMesh && this.capeOriginalPositions) {
+        const posAttr = this.capeMesh.geometry.attributes.position as THREE.BufferAttribute;
+        const posArr = posAttr.array as Float32Array;
+        const count = posAttr.count;
+
+        const waveSpeed = this.isMoving ? 12.0 : 3.5;
+        const waveFreq  = this.isMoving ? 4.5 : 2.5;
+        const waveAmp   = this.isMoving ? 0.22 : 0.06;
+        const liftAngle = this.isMoving ? 0.38 : 0.08;
+
+        for (let i = 0; i < count; i++) {
+          const origX = this.capeOriginalPositions[i * 3 + 0];
+          const origY = this.capeOriginalPositions[i * 3 + 1];
+          const origZ = this.capeOriginalPositions[i * 3 + 2];
+
+          const normY = THREE.MathUtils.clamp(1.0 - (origY + 0.6) / 1.2, 0.0, 1.0);
+          const wave = Math.sin(t * waveSpeed * 0.5 + normY * waveFreq) * waveAmp * normY;
+          const lift = normY * liftAngle;
+
+          posArr[i * 3 + 0] = origX;
+          posArr[i * 3 + 1] = origY;
+          posArr[i * 3 + 2] = origZ - wave - lift;
+        }
+        posAttr.needsUpdate = true;
+        this.capeMesh.geometry.computeVertexNormals();
+      }
+    }
+
+    // 2. Footstep Glowing Trail Motes
+    if (this.footstepGroup && this.footstepPositions && this.footstepAlphas) {
+      const count = this.footstepAlphas.length;
+      let needsUpdate = false;
+
+      // Spawn motes while moving along path
+      if (this.isMoving) {
+        this.footstepTimer += dt;
+        if (this.footstepTimer > 0.14) {
+          this.footstepTimer = 0;
+          const idx = this.footstepSpawnIndex;
+          this.footstepPositions[idx * 3 + 0] = this.root.position.x + (Math.random() - 0.5) * 0.25;
+          this.footstepPositions[idx * 3 + 1] = this.root.position.y + 0.12 + Math.random() * 0.15;
+          this.footstepPositions[idx * 3 + 2] = this.root.position.z + (Math.random() - 0.5) * 0.25;
+          this.footstepAlphas[idx] = 0.95;
+          this.footstepSpawnIndex = (this.footstepSpawnIndex + 1) % count;
+          needsUpdate = true;
+        }
+      }
+
+      // Drift upward and fade out
+      for (let i = 0; i < count; i++) {
+        if (this.footstepAlphas[i] > 0.01) {
+          this.footstepAlphas[i] -= dt * 0.65;
+          this.footstepPositions[i * 3 + 1] += dt * 0.22; // gently float up
+          needsUpdate = true;
+        } else {
+          this.footstepAlphas[i] = 0;
+        }
+      }
+
+      if (needsUpdate) {
+        const geo = this.footstepGroup.geometry;
+        (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+        (geo.attributes.aAlpha as THREE.BufferAttribute).needsUpdate = true;
+      }
     }
   }
 
@@ -439,6 +610,10 @@ export class CharacterRig {
   }
 
   public dispose(): void {
+    if (this.mixer) {
+      this.mixer.stopAllAction();
+    }
+
     this.disposables.forEach((item) => item.dispose());
 
     if (this.footstepGroup) {

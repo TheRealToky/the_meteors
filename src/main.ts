@@ -83,6 +83,7 @@ async function bootstrap() {
 
   // 9. Create Traditional Stylized Rwandan Architecture & Station Pavilions
   const stationsManager = createStationsManager(scene, terrain.getHeight);
+  stationsManager.load().catch((err) => console.warn('Stations load warning:', err));
 
   // 10. Create Camera Rail along the path
   const cameraRail = new CameraRail(camera, pathCurve);

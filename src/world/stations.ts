@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { STATION_COORDINATES } from './path';
 
 export interface StationsManager {
   group: THREE.Group;
+  load: () => Promise<void>;
   update: (dt: number, elapsed: number) => void;
   dispose: () => void;
 }
@@ -10,7 +12,7 @@ export interface StationsManager {
 /**
  * Creates traditional stylized Rwandan architecture and atmospheric landmarks at life stations.
  * Features conical thatched pavilions (Inzu / Urukari palace style), Imigongo geometric accents,
- * and glowing spirit lanterns inspired by Sky: Children of the Light.
+ * glowing spirit lanterns, and integrated furniture/props narrating the CRVS life journey.
  */
 export function createStationsManager(
   scene: THREE.Scene,
@@ -19,6 +21,7 @@ export function createStationsManager(
   const group = new THREE.Group();
   scene.add(group);
 
+  const loader = new GLTFLoader();
   const materialsToDispose: THREE.Material[] = [];
   const geometriesToDispose: THREE.BufferGeometry[] = [];
   const animatedLanterns: Array<{ mesh: THREE.Mesh; baseIntensity: number; phase: number }> = [];
@@ -125,8 +128,7 @@ export function createStationsManager(
 
     for (let i = 0; i < postCount; i++) {
       const angle = (i / postCount) * Math.PI * 2;
-      // Leave entrance opening at front (angle near 0)
-      if (Math.cos(angle) > 0.85) continue;
+      if (Math.cos(angle) > 0.85) continue; // Entrance opening
 
       const px = Math.sin(angle) * postRadius;
       const pz = Math.cos(angle) * postRadius;
@@ -136,7 +138,7 @@ export function createStationsManager(
       pavilion.add(postMesh);
     }
 
-    // 3. Low curved clay half-wall (open pavilion feel)
+    // 3. Low curved clay half-wall
     const wallGeo = new THREE.CylinderGeometry(
       postRadius,
       postRadius,
@@ -154,7 +156,7 @@ export function createStationsManager(
     wallMesh.receiveShadow = true;
     pavilion.add(wallMesh);
 
-    // 4. Iconic conical thatched roof (layered woven reed look)
+    // 4. Conical thatched roof
     const roofBaseY = baseHeight + postHeight;
     const roofRadius = baseRadius * 1.08;
     const roofHeight = 3.2 * scale;
@@ -166,21 +168,20 @@ export function createStationsManager(
     roofMesh.castShadow = true;
     pavilion.add(roofMesh);
 
-    // Top roof ring / finial (traditional woven peak)
+    // Top roof ring / finial
     const finialGeo = new THREE.SphereGeometry(0.24 * scale, 12, 12);
     geometriesToDispose.push(finialGeo);
     const finialMesh = new THREE.Mesh(finialGeo, woodPostMat);
     finialMesh.position.y = roofBaseY + roofHeight + 0.15 * scale;
     pavilion.add(finialMesh);
 
-    // 5. Hanging warm celestial lantern inside
+    // 5. Hanging warm celestial lantern
     if (withLantern) {
       const lanternGeo = new THREE.SphereGeometry(0.32 * scale, 16, 16);
       geometriesToDispose.push(lanternGeo);
       const lanternMesh = new THREE.Mesh(lanternGeo, lanternMat);
       lanternMesh.position.set(0, baseHeight + 1.6 * scale, 0);
 
-      // Outer glow aura
       const auraGeo = new THREE.SphereGeometry(0.65 * scale, 16, 16);
       geometriesToDispose.push(auraGeo);
       const auraMesh = new THREE.Mesh(auraGeo, glowAuraMat);
@@ -205,7 +206,6 @@ export function createStationsManager(
     const groundY = getHeight(x, z);
     cairn.position.set(x, groundY, z);
 
-    // Stack of 3 smooth river stones
     const s1Geo = new THREE.DodecahedronGeometry(0.48 * scale, 1);
     const s2Geo = new THREE.DodecahedronGeometry(0.36 * scale, 1);
     const s3Geo = new THREE.DodecahedronGeometry(0.24 * scale, 1);
@@ -231,7 +231,6 @@ export function createStationsManager(
     m3.castShadow = true;
     cairn.add(m3);
 
-    // Floating glowing spirit crystal above the cairn
     const runeGeo = new THREE.OctahedronGeometry(0.18 * scale, 0);
     geometriesToDispose.push(runeGeo);
     const runeMesh = new THREE.Mesh(runeGeo, lanternMat);
@@ -248,50 +247,164 @@ export function createStationsManager(
   };
 
   // Place architectural landmarks at key stations
+  const pavilions: Record<string, THREE.Group> = {};
   STATION_COORDINATES.forEach((coord) => {
     if (coord.id === 'intro') {
-      // Overlook pavilion
-      const p = buildRwandanPavilion(coord.x - 7.0, coord.z + 5.0, 1.25);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x - 7.0, coord.z + 5.0, 1.25);
+      group.add(pavilions[coord.id]);
     } else if (coord.id === 'birth') {
-      // Birth shelter beside the path
-      const p = buildRwandanPavilion(coord.x + 8.5, coord.z - 3.5, 1.1);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x + 8.5, coord.z - 3.5, 1.1);
+      group.add(pavilions[coord.id]);
       group.add(buildStoneCairn(coord.x - 3.5, coord.z + 4.0, 1.0));
     } else if (coord.id === 'growing') {
-      // Youth hill pavilion
-      const p = buildRwandanPavilion(coord.x - 9.0, coord.z - 6.0, 1.2);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x - 9.0, coord.z - 6.0, 1.2);
+      group.add(pavilions[coord.id]);
       group.add(buildStoneCairn(coord.x + 4.5, coord.z + 3.0, 0.9));
     } else if (coord.id === 'marriage') {
-      // Ceremonial wedding pavilion with warm golden glow
-      const p = buildRwandanPavilion(coord.x + 8.0, coord.z + 6.0, 1.35);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x + 8.0, coord.z + 6.0, 1.35);
+      group.add(pavilions[coord.id]);
       group.add(buildStoneCairn(coord.x - 4.5, coord.z - 4.0, 1.1));
     } else if (coord.id === 'divorce') {
-      // Contemplative stone sanctuary
-      const p = buildRwandanPavilion(coord.x - 8.5, coord.z + 7.0, 1.15);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x - 8.5, coord.z + 7.0, 1.15);
+      group.add(pavilions[coord.id]);
       group.add(buildStoneCairn(coord.x + 4.0, coord.z - 3.5, 1.0));
     } else if (coord.id === 'death') {
-      // Peaceful sacred ancestor shrine
-      const p = buildRwandanPavilion(coord.x + 9.5, coord.z - 6.0, 1.2);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x + 9.5, coord.z - 6.0, 1.2);
+      group.add(pavilions[coord.id]);
       group.add(buildStoneCairn(coord.x - 5.0, coord.z + 3.5, 1.2));
       group.add(buildStoneCairn(coord.x - 7.0, coord.z - 2.0, 0.85));
     } else if (coord.id === 'outro') {
-      // Grand summit pavilion overlooking the 1,000 hills
-      const p = buildRwandanPavilion(coord.x + 7.5, coord.z + 5.0, 1.4);
-      group.add(p);
+      pavilions[coord.id] = buildRwandanPavilion(coord.x + 7.5, coord.z + 5.0, 1.4);
+      group.add(pavilions[coord.id]);
     }
   });
+
+  // Load and decorate stations with Kenney furniture & props
+  const load = async (): Promise<void> => {
+    const loadModel = async (url: string): Promise<THREE.Group | null> => {
+      try {
+        const gltf = await loader.loadAsync(url);
+        gltf.scene.traverse((c) => {
+          if (c instanceof THREE.Mesh) {
+            c.castShadow = true;
+            c.receiveShadow = true;
+            if (c.geometry) c.geometry.computeVertexNormals();
+            if (c.material) {
+              const mats = Array.isArray(c.material) ? c.material : [c.material];
+              mats.forEach((m) => {
+                if ('flatShading' in m) (m as THREE.MeshStandardMaterial).flatShading = false;
+                if ('roughness' in m) (m as THREE.MeshStandardMaterial).roughness = 0.72;
+              });
+            }
+          }
+        });
+        return gltf.scene;
+      } catch (err) {
+        console.warn(`Could not load station prop ${url}:`, err);
+        return null;
+      }
+    };
+
+    const benchModel = await loadModel('/models/props/bench.glb');
+    const deskModel = await loadModel('/models/props/desk.glb');
+    const booksModel = await loadModel('/models/props/books.glb');
+    const chairModel = await loadModel('/models/props/chairRounded.glb');
+    const planterModel = await loadModel('/models/props/planter.glb');
+    const ambulanceModel = await loadModel('/models/props/ambulance.glb');
+    const deadTreeModel = await loadModel('/models/nature/DeadTree_1.gltf');
+
+    // Helper to position a model at (x, z) grounded on terrain
+    const placeProp = (model: THREE.Group | null, x: number, z: number, scale = 1.0, rotY = 0): void => {
+      if (!model) return;
+      const clone = model.clone(true);
+      const y = getHeight(x, z);
+      clone.position.set(x, y + 0.02, z);
+      clone.rotation.y = rotY;
+      clone.scale.set(scale, scale, scale);
+      group.add(clone);
+    };
+
+    // Helper to place prop inside or relative to a pavilion platform
+    const placeInPavilion = (pavilion: THREE.Group | undefined, model: THREE.Group | null, localX: number, localZ: number, scale = 1.0, rotY = 0): void => {
+      if (!pavilion || !model) return;
+      const clone = model.clone(true);
+      clone.position.set(localX, 0.38, localZ);
+      clone.rotation.y = rotY;
+      clone.scale.set(scale, scale, scale);
+      pavilion.add(clone);
+    };
+
+    // 1. Birth Station (Rest bench, planters, and subtle distant clinic vehicle)
+    if (benchModel) {
+      placeProp(benchModel, 31.0, -11.0, 1.8, 0.4);
+    }
+    if (planterModel) {
+      placeProp(planterModel, 27.5, -9.5, 1.5, 0.2);
+      placeProp(planterModel, 32.5, -7.5, 1.5, -0.4);
+    }
+    // Community clinic vehicle parked in the distance along lower terrace
+    if (ambulanceModel) {
+      placeProp(ambulanceModel, 42.0, -22.0, 1.1, -1.2);
+    }
+
+    // 2. Growing Up Station (Youth rest bench, terrace planters)
+    if (benchModel) {
+      placeProp(benchModel, 24.0, 26.0, 1.8, 2.2);
+    }
+    if (planterModel) {
+      placeProp(planterModel, 19.5, 23.5, 1.5, 0.8);
+    }
+
+    // 3. Marriage Station (Civil Registration signing desk, ledgers, chairs inside pavilion)
+    const marriagePavilion = pavilions['marriage'];
+    if (marriagePavilion) {
+      if (deskModel) {
+        placeInPavilion(marriagePavilion, deskModel, 0, 0, 1.7, 0);
+      }
+      if (booksModel) {
+        // Registry ledgers on the desk
+        const books = booksModel.clone(true);
+        books.position.set(0.15, 1.05, 0.05);
+        books.scale.set(2.2, 2.2, 2.2);
+        marriagePavilion.add(books);
+      }
+      if (chairModel) {
+        placeInPavilion(marriagePavilion, chairModel, -0.75, -0.6, 1.7, 0.3);
+        placeInPavilion(marriagePavilion, chairModel, 0.75, -0.6, 1.7, -0.3);
+      }
+      if (planterModel) {
+        placeProp(planterModel, -15.5, 29.5, 1.5, 1.1);
+        placeProp(planterModel, -10.5, 33.5, 1.5, -0.5);
+      }
+    }
+
+    // 4. Divorce Station (Contemplative wooden rest bench overlooking the misty valley)
+    if (benchModel) {
+      placeProp(benchModel, -26.5, 2.0, 1.8, -1.3);
+    }
+
+    // 5. Death Station (Sacred ancestor tree & reflection bench)
+    if (deadTreeModel) {
+      placeProp(deadTreeModel, -3.5, -34.0, 0.32, 0.7);
+    }
+    if (benchModel) {
+      placeProp(benchModel, 5.0, -25.5, 1.8, 1.8);
+    }
+
+    // 6. Intro & Outro Stations
+    if (benchModel) {
+      placeProp(benchModel, -5.5, 4.5, 1.8, 0.2);
+    }
+    if (planterModel) {
+      placeProp(planterModel, -8.0, 2.5, 1.5, 0.5);
+    }
+  };
 
   const update = (_dt: number, elapsed: number): void => {
     // Gentle floating and pulsing on lanterns and spirit runes
     for (const item of animatedLanterns) {
       const pulse = 1.0 + 0.18 * Math.sin(elapsed * 2.5 + item.phase);
       item.mesh.scale.setScalar(pulse);
-      // Gentle vertical float
       item.mesh.position.y += Math.sin(elapsed * 1.8 + item.phase) * 0.0015;
     }
   };
@@ -302,5 +415,5 @@ export function createStationsManager(
     scene.remove(group);
   };
 
-  return { group, update, dispose };
+  return { group, load, update, dispose };
 }
