@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { BaseScene } from './SceneBase';
 import { SceneContext, SceneId } from '../director/types';
 import { BirthCloud, BirthData } from '../world/BirthCloud';
+import { BirthOverlays } from '../ui/BirthOverlays';
 import { t, formatNumber, getLanguage } from '../i18n';
 
 export class BirthScene extends BaseScene {
@@ -17,6 +18,7 @@ export class BirthScene extends BaseScene {
   private promptEl: HTMLElement | null = null;
   private ariaLiveEl: HTMLElement | null = null;
   private overlaySlotEl: HTMLElement | null = null;
+  private birthOverlays: BirthOverlays | null = null;
 
   // Animation & Tweens
   private countTween: gsap.core.Tween | null = null;
@@ -302,6 +304,22 @@ export class BirthScene extends BaseScene {
       this.ctx.cameraRail.animateTo(0.16, 1.8, 'power2.inOut');
     }
 
+    // Mount Person A's BirthOverlays into overlaySlotEl
+    if (this.overlaySlotEl && this.birthData && this.ctx) {
+      this.birthOverlays = new BirthOverlays({
+        container: this.overlaySlotEl,
+        birthData: this.birthData as any,
+        playerSex: this.ctx.state.sex,
+        existingName: this.ctx.state.name,
+        onNameAssigned: (name) => {
+          this.ctx?.updateState({ name });
+        },
+        onContinue: () => {
+          this.ctx?.goToScene('growing');
+        },
+      });
+    }
+
     // Emit event: birth:bornComplete
     window.dispatchEvent(
       new CustomEvent('birth:bornComplete', {
@@ -330,9 +348,16 @@ export class BirthScene extends BaseScene {
     if (this.promptEl) {
       this.promptEl.textContent = t('birth.tap_to_be_born');
     }
+    if (this.birthOverlays) {
+      this.birthOverlays.updateLanguage();
+    }
   }
 
   async exit(): Promise<void> {
+    if (this.birthOverlays) {
+      this.birthOverlays.dispose();
+      this.birthOverlays = null;
+    }
     if (this.countTween) {
       this.countTween.kill();
       this.countTween = null;
@@ -368,6 +393,10 @@ export class BirthScene extends BaseScene {
   }
 
   dispose(): void {
+    if (this.birthOverlays) {
+      this.birthOverlays.dispose();
+      this.birthOverlays = null;
+    }
     if (this.countTween) {
       this.countTween.kill();
       this.countTween = null;
