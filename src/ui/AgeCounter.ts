@@ -31,7 +31,7 @@ export class AgeCounter {
 
     this.element.innerHTML = `
       <div class="age-icon-wrapper" aria-hidden="true">
-        <span class="age-icon">🌱</span>
+        <span class="age-icon"></span>
       </div>
       <div class="age-content">
         <span class="age-label">${t('hud.age_label')}</span>
@@ -109,15 +109,15 @@ export class AgeCounter {
     if (!iconSpan) return;
 
     if (age <= 0) {
-      iconSpan.textContent = '🍼'; // Newborn
+      iconSpan.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>';
     } else if (age < 18) {
-      iconSpan.textContent = '🎒'; // Youth / Student
+      iconSpan.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg>';
     } else if (age < 35) {
-      iconSpan.textContent = '💍'; // Young adult / Marriage
+      iconSpan.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>';
     } else if (age < 60) {
-      iconSpan.textContent = '💼'; // Middle adult
+      iconSpan.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>';
     } else {
-      iconSpan.textContent = '👴'; // Elder
+      iconSpan.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
     }
   }
 

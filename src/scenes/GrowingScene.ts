@@ -87,7 +87,7 @@ export class GrowingScene extends BaseScene {
       <div class="growing-card-header">
         <span class="station-tag">Station 2 · Youth</span>
         <button id="btn-skip-timelapse" class="skip-btn" tabindex="0" title="Skip animation">
-          ${t('growing.skip')} ⏩
+          ${t('growing.skip')}
         </button>
       </div>
 
@@ -95,9 +95,9 @@ export class GrowingScene extends BaseScene {
       <p class="growing-subtitle">${t('growing.subtitle')}</p>
       
       <div class="growing-milestone-pills">
-        <span class="pill-badge">🎓 Primary Education</span>
-        <span class="pill-badge">🌿 Terraced Agriculture</span>
-        <span class="pill-badge">🏥 Community Health</span>
+        <span class="pill-badge">Primary Education</span>
+        <span class="pill-badge">Terraced Agriculture</span>
+        <span class="pill-badge">Community Health</span>
       </div>
 
       <div class="growing-caption-box">

@@ -264,7 +264,7 @@ export class AudioManager {
           <span class="bar bar-2"></span>
           <span class="bar bar-3"></span>
         </div>
-        <span class="audio-icon-muted" aria-hidden="true">🔇</span>
+        <span class="audio-icon-muted" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg></span>
       </button>
 
       <div class="audio-popover-panel glass-panel" id="audio-panel" style="display: none;">
@@ -277,7 +277,7 @@ export class AudioManager {
         </div>
 
         <div class="audio-track-info">
-          <span class="audio-track-icon">${this.currentTrackKey === 'piano' ? '🎹' : '🎵'}</span>
+          <span class="audio-track-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
           <div class="audio-track-meta">
             <span class="audio-track-name" id="audio-track-name">
               ${this.getTrackDisplayName()}
@@ -300,7 +300,7 @@ export class AudioManager {
 
         <div class="audio-controls-group">
           <div class="audio-slider-row">
-            <span class="slider-vol-icon">🔉</span>
+            <span class="slider-vol-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
             <input type="range" 
                    id="audio-volume-slider" 
                    class="audio-slider" 
@@ -313,7 +313,7 @@ export class AudioManager {
 
           <div class="audio-action-row">
             <label class="audio-upload-label" for="audio-file-input">
-              <span class="upload-icon">📂</span>
+              <span class="upload-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
               <span class="upload-text">${t('audio.upload_btn')}</span>
             </label>
             <input type="file" id="audio-file-input" class="sr-only" accept="audio/*" />
@@ -429,7 +429,7 @@ export class AudioManager {
 
     const iconEl = this.widgetEl?.querySelector('.audio-track-icon');
     if (iconEl) {
-      iconEl.textContent = this.currentTrackKey === 'piano' ? '🎹' : '🎵';
+      iconEl.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
     }
 
     const btnPiano = this.widgetEl?.querySelector('#btn-preset-piano');

@@ -109,7 +109,7 @@ export class MarriageScene extends BaseScene {
       labels: this.marriageData?.labels ?? ['Below 21', '21-24', '25-29', '30-34', '35-39', '40+'],
       series,
       unit: 'marriages',
-      markerIcon: '💍',
+      markerIcon: '●',
       initialGuessIndex: initialIdx,
       insights: [
         {

@@ -113,7 +113,7 @@ export class DivorceScene extends BaseScene {
       ],
       series,
       unit: 'divorces',
-      markerIcon: '⏳',
+      markerIcon: '●',
       initialGuessIndex: initialIdx,
       insights: [
         {
@@ -247,7 +247,7 @@ export class DivorceScene extends BaseScene {
         </div>
         <div class="indicator-chip">
           <span class="indicator-chip-label">${t('divorce.avg_ages_title')}</span>
-          <span class="indicator-chip-value">${formatNumber(ind.male_average_age, lang)} ♂ · ${formatNumber(ind.female_average_age, lang)} ♀</span>
+          <span class="indicator-chip-value">${t('common.male')}: ${formatNumber(ind.male_average_age, lang)} · ${t('common.female')}: ${formatNumber(ind.female_average_age, lang)}</span>
           <span class="indicator-chip-sub">Table 28 (Men vs Women)</span>
         </div>
       </div>

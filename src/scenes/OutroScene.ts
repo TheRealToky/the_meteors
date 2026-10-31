@@ -140,7 +140,7 @@ export class OutroScene extends BaseScene {
       <!-- Official CRVS Sources & Principles -->
       <div class="outro-sections-grid">
         <div class="outro-info-box">
-          <span class="outro-info-title">📚 ${t('outro.sources_title')}</span>
+          <span class="outro-info-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg> ${t('outro.sources_title')}</span>
           <p class="outro-citation-intro">${t('outro.nisr_citation')}</p>
           <ul class="outro-citations-list">
             <li>${t('outro.citation_pyramid')}</li>
@@ -152,7 +152,7 @@ export class OutroScene extends BaseScene {
         </div>
 
         <div class="outro-info-box">
-          <span class="outro-info-title">⚖️ ${t('outro.data_principles_title')}</span>
+          <span class="outro-info-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> ${t('outro.data_principles_title')}</span>
           <p>${t('caveat.composite_life')}</p>
           <p>${t('caveat.divorce_not_rate')}</p>
           <p>${t('caveat.registered_deaths_completeness')}</p>
@@ -162,7 +162,7 @@ export class OutroScene extends BaseScene {
       <!-- Actions: Methodology & Restart -->
       <div class="outro-footer-actions">
         <button id="btn-open-methodology" class="outro-methodology-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
-          📖 ${t('outro.methodology_btn')}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> <span>${t('outro.methodology_btn')}</span>
         </button>
         <button id="btn-outro-restart" class="outro-restart-btn" type="button">
           ${t('outro.play_again_btn', { otherSex: otherSexLabel })}
@@ -219,28 +219,28 @@ export class OutroScene extends BaseScene {
 
         <div class="methodology-items-grid">
           <div class="methodology-card">
-            <h4 class="methodology-card-title">🧩 ${t('outro.methodology_composite_title')}</h4>
+            <h4 class="methodology-card-title">${t('outro.methodology_composite_title')}</h4>
             <p class="methodology-card-text">${t('outro.methodology_composite_desc')}</p>
           </div>
 
           <div class="methodology-card">
-            <h4 class="methodology-card-title">📋 ${t('outro.methodology_completeness_title')}</h4>
+            <h4 class="methodology-card-title">${t('outro.methodology_completeness_title')}</h4>
             <p class="methodology-card-text">${t('outro.methodology_completeness_desc')}</p>
           </div>
 
           <div class="methodology-card">
-            <h4 class="methodology-card-title">💍 ${t('outro.methodology_divorce_title')}</h4>
+            <h4 class="methodology-card-title">${t('outro.methodology_divorce_title')}</h4>
             <p class="methodology-card-text">${t('outro.methodology_divorce_desc')}</p>
           </div>
 
           <div class="methodology-card">
-            <h4 class="methodology-card-title">🏥 ${t('outro.methodology_causes_title')}</h4>
+            <h4 class="methodology-card-title">${t('outro.methodology_causes_title')}</h4>
             <p class="methodology-card-text">${t('outro.methodology_causes_desc')}</p>
           </div>
         </div>
 
         <div class="methodology-citations-section">
-          <h4 class="methodology-card-title">📊 ${t('outro.sources_title')}</h4>
+          <h4 class="methodology-card-title">${t('outro.sources_title')}</h4>
           <ul class="methodology-citations-list">
             <li>${t('outro.citation_pyramid')}</li>
             <li>${t('outro.citation_births')}</li>

@@ -127,7 +127,7 @@ export class DeathScene extends BaseScene {
       ],
       series,
       unit: 'deaths',
-      markerIcon: '🕊️',
+      markerIcon: '●',
       initialGuessIndex: initialIdx,
       insights: [
         {
@@ -254,7 +254,7 @@ export class DeathScene extends BaseScene {
       </div>
 
       <div class="death-perinatal-alert">
-        💡 <strong>${t('death.perinatal_link')}</strong>
+        <span class="alert-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg></span> <strong>${t('death.perinatal_link')}</strong>
       </div>
 
       <div class="death-dual-columns">

@@ -12,6 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     
     <link rel="stylesheet" href="/src/style.css" />
+    <style>
+      :focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+    </style>
   </head>
   <body>
     <!-- 3D Canvas -->
@@ -81,16 +84,18 @@
       <!-- Bottom Floating Controls -->
       <footer class="hud-footer">
         <div class="footer-hint glass-panel">
-          <span class="hint-icon">⛰️</span>
+          <span class="hint-icon" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+          </span>
           <span id="station-hint" class="hint-text">14.1M Rwandans. One life path through terraced hills.</span>
         </div>
 
         <div class="nav-controls">
           <button id="btn-prev" class="nav-btn glass-panel" title="Previous station">
-            ← Back
+            Back
           </button>
           <button id="btn-next" class="nav-btn primary-btn" title="Next station">
-            Next Station →
+            Next Station
           </button>
         </div>
       </footer>

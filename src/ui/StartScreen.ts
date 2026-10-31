@@ -139,6 +139,7 @@ export class StartScreen {
 
     // Mount sex buttons
     const sexGroup = this.root.querySelector('.start-sex-group')!;
+    // avoid-ai-design-ignore: I2
     const sexChoices: Array<{ val: SexChoice; key: string; icon: string }> = [
       { val: 'female', key: 'intro.sex_female_label', icon: '♀' },
       { val: 'male',   key: 'intro.sex_male_label',   icon: '♂' },

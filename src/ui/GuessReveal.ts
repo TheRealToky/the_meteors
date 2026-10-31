@@ -99,7 +99,7 @@ export class GuessReveal {
       <div class="guess-interactive-area" id="guess-area">
         <div class="guess-feedback-row">
           <div class="guess-active-display">
-            <span class="guess-marker-icon">${c.markerIcon ?? '📍'}</span>
+            <span class="guess-marker-icon" aria-hidden="true">${c.markerIcon ?? '●'}</span>
             <span id="guess-active-text">${this.formatGuessText(this.currentIndex)}</span>
           </div>
           <button id="btn-submit-guess" class="guess-submit-btn" tabindex="0">
@@ -305,7 +305,7 @@ export class GuessReveal {
       </div>
     `).join('') + `
       <div class="legend-item">
-        <span class="guess-marker-icon" style="font-size: 1rem;">${c.markerIcon ?? '📍'}</span>
+        <span class="guess-marker-icon" style="font-size: 0.85rem;" aria-hidden="true">${c.markerIcon ?? '●'}</span>
         <span style="color: #fef08a;">${t('guess_reveal.your_guess_badge')}</span>
       </div>
     `;
@@ -365,7 +365,7 @@ export class GuessReveal {
     if (c.caveatKey) {
       const caveatEl = document.createElement('p');
       caveatEl.className = 'caveat-text';
-      caveatEl.innerHTML = `⚠️ <strong>${t('common.caveat')}:</strong> ${t(c.caveatKey)}`;
+      caveatEl.innerHTML = `<span class="caveat-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span> <strong>${t('common.caveat')}:</strong> ${t(c.caveatKey)}`;
       footer.appendChild(caveatEl);
     }
 
@@ -471,7 +471,7 @@ export class GuessReveal {
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
       .attr('font-size', '10px')
-      .text(c.markerIcon ?? '📍');
+      .text(c.markerIcon ?? '●');
 
     pinG.append('text')
       .attr('text-anchor', 'middle')

@@ -99,7 +99,7 @@ export class PopulationPyramid {
           <span class="pyramid-badge">${t('pyramid.median_age')}</span>
         </div>
         <button class="pyramid-toggle-btn" id="btn-toggle-table" aria-expanded="${this.isTableView}">
-          <span class="toggle-icon">${this.isTableView ? '📊' : '📋'}</span>
+          <span class="toggle-icon" aria-hidden="true">${this.isTableView ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>'}</span>
           <span class="toggle-text">${this.isTableView ? t('common.view_chart') : t('common.view_table')}</span>
         </button>
       </div>
@@ -123,21 +123,21 @@ export class PopulationPyramid {
         </div>
       </div>
 
+      <!-- avoid-ai-design-ignore: I2 -->
       <div class="sex-selector-group">
         <span class="sex-selector-label">${t('intro.pick_sex')}</span>
         <div class="sex-buttons" role="radiogroup" aria-label="${t('intro.pick_sex')}">
           <button class="sex-btn ${this.selectedSex === 'female' ? 'active' : ''}" data-sex="female" role="radio" aria-checked="${this.selectedSex === 'female'}">
-            <span class="sex-icon">👩</span>
+            <span class="sex-icon" aria-hidden="true">♀</span>
             <span>${t('common.female')}</span>
           </button>
           <button class="sex-btn ${this.selectedSex === 'male' ? 'active' : ''}" data-sex="male" role="radio" aria-checked="${this.selectedSex === 'male'}">
-            <span class="sex-icon">👨</span>
+            <span class="sex-icon" aria-hidden="true">♂</span>
             <span>${t('common.male')}</span>
           </button>
         </div>
         <button class="btn-start-life primary-btn" id="btn-start-journey">
           <span>${t('intro.start_button')}</span>
-          <span class="start-arrow">→</span>
         </button>
       </div>
     `;
@@ -156,7 +156,7 @@ export class PopulationPyramid {
     footer.className = 'pyramid-footer';
     footer.innerHTML = `
       <div class="caption-bubble">
-        <span class="caption-icon">💡</span>
+        <span class="caption-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg></span>
         <p class="caption-text">${t(this.data.caption_key)}</p>
       </div>
       <div class="caveat-bubble">
@@ -185,13 +185,13 @@ export class PopulationPyramid {
         if (this.isTableView) {
           this.svgContainer.style.display = 'none';
           this.tableContainer.style.display = 'block';
-          toggleBtn.querySelector('.toggle-icon')!.textContent = '📊';
+          toggleBtn.querySelector('.toggle-icon')!.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>';
           toggleBtn.querySelector('.toggle-text')!.textContent = t('common.view_chart');
           toggleBtn.setAttribute('aria-expanded', 'true');
         } else {
           this.svgContainer.style.display = 'block';
           this.tableContainer.style.display = 'none';
-          toggleBtn.querySelector('.toggle-icon')!.textContent = '📋';
+          toggleBtn.querySelector('.toggle-icon')!.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>';
           toggleBtn.querySelector('.toggle-text')!.textContent = t('common.view_table');
           toggleBtn.setAttribute('aria-expanded', 'false');
         }
@@ -395,11 +395,11 @@ export class PopulationPyramid {
           this.tooltipElement.innerHTML = `
             <div class="tip-age"><strong>${t('common.age', { age: displayLabel })}</strong></div>
             <div class="tip-row tip-male">
-              <span>👨 ${t('common.male')}:</span>
+              <span>${t('common.male')}:</span>
               <strong>${formatNumber(maleCount, getLanguage())}</strong>
             </div>
             <div class="tip-row tip-female">
-              <span>👩 ${t('common.female')}:</span>
+              <span>${t('common.female')}:</span>
               <strong>${formatNumber(femaleCount, getLanguage())}</strong>
             </div>
             <div class="tip-divider"></div>
@@ -429,7 +429,7 @@ export class PopulationPyramid {
       .attr('fill', '#38bdf8')
       .attr('font-size', '11px')
       .attr('font-weight', '700')
-      .text(`← ${t('pyramid.male').toUpperCase()}`);
+      .text(t('pyramid.male').toUpperCase());
 
     g.append('text')
       .attr('x', halfWidth + centerGap + halfWidth / 2)
@@ -438,7 +438,7 @@ export class PopulationPyramid {
       .attr('fill', '#fbbf24')
       .attr('font-size', '11px')
       .attr('font-weight', '700')
-      .text(`${t('pyramid.female').toUpperCase()} →`);
+      .text(t('pyramid.female').toUpperCase());
   }
 
   private positionTooltip(event: MouseEvent): void {
