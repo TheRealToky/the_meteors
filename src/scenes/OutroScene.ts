@@ -8,10 +8,19 @@ export class OutroScene extends BaseScene {
   private group: THREE.Group = new THREE.Group();
   private unregisterI18n: (() => void) | null = null;
   private outroCardEl: HTMLElement | null = null;
+  private methodologyModalEl: HTMLElement | null = null;
+  private isMethodologyOpen: boolean = false;
+  private prefersReducedMotion: boolean = false;
 
   // 3D Visual Props: Summit overlook marker & sunrise beacon
   private propsGroup: THREE.Group = new THREE.Group();
   private beaconLight: THREE.PointLight | null = null;
+
+  private onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && this.isMethodologyOpen) {
+      this.closeMethodology();
+    }
+  };
 
   async load(): Promise<void> {
     await super.load();
@@ -19,6 +28,10 @@ export class OutroScene extends BaseScene {
 
   async enter(ctx: SceneContext): Promise<void> {
     await super.enter(ctx);
+
+    this.prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // 1. Move camera rail to Outro station (t = 1.00 on rail)
     ctx.cameraRail.setProgress(1.00);
@@ -30,8 +43,13 @@ export class OutroScene extends BaseScene {
     // 3. Render Outro UI Overlay
     this.renderOutroUI(ctx);
 
+    window.addEventListener('keydown', this.onKeyDown);
+
     this.unregisterI18n = onLanguageChange(() => {
       this.renderOutroUI(ctx);
+      if (this.isMethodologyOpen) {
+        this.openMethodology();
+      }
     });
   }
 
@@ -94,6 +112,8 @@ export class OutroScene extends BaseScene {
 
     this.outroCardEl = document.createElement('div');
     this.outroCardEl.className = 'outro-overlay-card glass-panel';
+    this.outroCardEl.setAttribute('role', 'region');
+    this.outroCardEl.setAttribute('aria-label', t('outro.title'));
     this.outroCardEl.innerHTML = `
       <div class="outro-header">
         <span class="station-badge-gold">${t('outro.station_tag')}</span>
@@ -102,7 +122,7 @@ export class OutroScene extends BaseScene {
       </div>
 
       <!-- Recap of Player's Chosen Run -->
-      <div class="outro-recap-grid">
+      <div class="outro-recap-grid" aria-label="${t('outro.journey_recap_title')}">
         <div class="outro-recap-card">
           <span class="outro-recap-label">${t('outro.identity_label')}</span>
           <span class="outro-recap-value">${travelerName} (${sexLabel})</span>
@@ -117,17 +137,17 @@ export class OutroScene extends BaseScene {
         </div>
       </div>
 
-      <!-- Official CRVS Sources & Methodology Decisions -->
+      <!-- Official CRVS Sources & Principles -->
       <div class="outro-sections-grid">
         <div class="outro-info-box">
           <span class="outro-info-title">📚 ${t('outro.sources_title')}</span>
-          <p>${t('outro.nisr_citation')}</p>
+          <p class="outro-citation-intro">${t('outro.nisr_citation')}</p>
           <ul class="outro-citations-list">
-            <li><strong>Population Pyramid:</strong> Figure 1 & Annex 1 (14,108,217 total)</li>
-            <li><strong>Registered Births:</strong> Sheet 10.3 & Annex 2 (356,838 births)</li>
-            <li><strong>Marriages:</strong> Table 18 & Figure 30 (50,256 marriages)</li>
-            <li><strong>Divorces:</strong> Tables 27 & 28 (4,479 registered divorces)</li>
-            <li><strong>Mortality & Causes:</strong> Figure 19 & Table 17 (39,355 deaths)</li>
+            <li>${t('outro.citation_pyramid')}</li>
+            <li>${t('outro.citation_births')}</li>
+            <li>${t('outro.citation_marriages')}</li>
+            <li>${t('outro.citation_divorces')}</li>
+            <li>${t('outro.citation_deaths')}</li>
           </ul>
         </div>
 
@@ -139,9 +159,12 @@ export class OutroScene extends BaseScene {
         </div>
       </div>
 
-      <!-- Restart Flow Button -->
+      <!-- Actions: Methodology & Restart -->
       <div class="outro-footer-actions">
-        <button id="btn-outro-restart" class="outro-restart-btn">
+        <button id="btn-open-methodology" class="outro-methodology-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+          📖 ${t('outro.methodology_btn')}
+        </button>
+        <button id="btn-outro-restart" class="outro-restart-btn" type="button">
           ${t('outro.play_again_btn', { otherSex: otherSexLabel })}
         </button>
       </div>
@@ -158,12 +181,129 @@ export class OutroScene extends BaseScene {
       });
     }
 
+    const methodologyBtn = this.outroCardEl.querySelector('#btn-open-methodology') as HTMLButtonElement | null;
+    if (methodologyBtn) {
+      methodologyBtn.addEventListener('click', () => {
+        this.openMethodology();
+      });
+    }
+
     ctx.uiContainer.appendChild(this.outroCardEl);
+  }
+
+  private openMethodology(): void {
+    if (!this.ctx) return;
+    this.closeMethodology();
+    this.isMethodologyOpen = true;
+
+    const triggerBtn = this.outroCardEl?.querySelector('#btn-open-methodology');
+    if (triggerBtn) {
+      triggerBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    this.methodologyModalEl = document.createElement('div');
+    this.methodologyModalEl.className = 'methodology-modal-backdrop';
+    this.methodologyModalEl.innerHTML = `
+      <div class="methodology-modal-card glass-panel" role="dialog" aria-modal="true" aria-labelledby="methodology-modal-title">
+        <div class="methodology-modal-header">
+          <div class="methodology-title-group">
+            <span class="station-badge-gold">CRVS 2025</span>
+            <h3 id="methodology-modal-title" class="methodology-title">${t('outro.methodology_title')}</h3>
+          </div>
+          <button id="btn-close-methodology" class="methodology-close-btn" type="button" aria-label="${t('outro.methodology_close')}">
+            ✕
+          </button>
+        </div>
+
+        <p class="methodology-lead">${t('outro.methodology_intro')}</p>
+
+        <div class="methodology-items-grid">
+          <div class="methodology-card">
+            <h4 class="methodology-card-title">🧩 ${t('outro.methodology_composite_title')}</h4>
+            <p class="methodology-card-text">${t('outro.methodology_composite_desc')}</p>
+          </div>
+
+          <div class="methodology-card">
+            <h4 class="methodology-card-title">📋 ${t('outro.methodology_completeness_title')}</h4>
+            <p class="methodology-card-text">${t('outro.methodology_completeness_desc')}</p>
+          </div>
+
+          <div class="methodology-card">
+            <h4 class="methodology-card-title">💍 ${t('outro.methodology_divorce_title')}</h4>
+            <p class="methodology-card-text">${t('outro.methodology_divorce_desc')}</p>
+          </div>
+
+          <div class="methodology-card">
+            <h4 class="methodology-card-title">🏥 ${t('outro.methodology_causes_title')}</h4>
+            <p class="methodology-card-text">${t('outro.methodology_causes_desc')}</p>
+          </div>
+        </div>
+
+        <div class="methodology-citations-section">
+          <h4 class="methodology-card-title">📊 ${t('outro.sources_title')}</h4>
+          <ul class="methodology-citations-list">
+            <li>${t('outro.citation_pyramid')}</li>
+            <li>${t('outro.citation_births')}</li>
+            <li>${t('outro.citation_marriages')}</li>
+            <li>${t('outro.citation_divorces')}</li>
+            <li>${t('outro.citation_deaths')}</li>
+          </ul>
+        </div>
+
+        <div class="methodology-footer">
+          <p class="methodology-credits"><strong>${t('outro.credits_title')}:</strong> ${t('outro.credits_text')}</p>
+          <button id="btn-close-methodology-footer" class="methodology-done-btn" type="button">
+            ${t('outro.methodology_close')}
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Handle clicks to close
+    this.methodologyModalEl.addEventListener('click', (e) => {
+      if (e.target === this.methodologyModalEl) {
+        this.closeMethodology();
+      }
+    });
+
+    const closeHeaderBtn = this.methodologyModalEl.querySelector('#btn-close-methodology');
+    if (closeHeaderBtn) {
+      closeHeaderBtn.addEventListener('click', () => this.closeMethodology());
+    }
+
+    const closeFooterBtn = this.methodologyModalEl.querySelector('#btn-close-methodology-footer');
+    if (closeFooterBtn) {
+      closeFooterBtn.addEventListener('click', () => this.closeMethodology());
+    }
+
+    this.ctx.uiContainer.appendChild(this.methodologyModalEl);
+
+    // Set focus to the modal close button for accessibility
+    const firstFocusable = this.methodologyModalEl.querySelector('#btn-close-methodology') as HTMLElement | null;
+    firstFocusable?.focus();
+  }
+
+  private closeMethodology(): void {
+    if (this.methodologyModalEl) {
+      this.methodologyModalEl.remove();
+      this.methodologyModalEl = null;
+    }
+    this.isMethodologyOpen = false;
+
+    const triggerBtn = this.outroCardEl?.querySelector('#btn-open-methodology') as HTMLElement | null;
+    if (triggerBtn) {
+      triggerBtn.setAttribute('aria-expanded', 'false');
+      triggerBtn.focus();
+    }
   }
 
   update(_dt: number, elapsed: number): void {
     if (this.beaconLight) {
-      this.beaconLight.intensity = 1.5 + Math.sin(elapsed * 2.5) * 0.3;
+      if (this.prefersReducedMotion) {
+        this.beaconLight.intensity = 1.6;
+      } else {
+        this.beaconLight.intensity = 1.5 + Math.sin(elapsed * 2.5) * 0.3;
+      }
     }
   }
 
@@ -174,10 +314,12 @@ export class OutroScene extends BaseScene {
   }
 
   async exit(): Promise<void> {
+    window.removeEventListener('keydown', this.onKeyDown);
     if (this.unregisterI18n) {
       this.unregisterI18n();
       this.unregisterI18n = null;
     }
+    this.closeMethodology();
     if (this.outroCardEl) {
       this.outroCardEl.remove();
       this.outroCardEl = null;
@@ -192,6 +334,8 @@ export class OutroScene extends BaseScene {
   }
 
   dispose(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.closeMethodology();
     if (this.outroCardEl) {
       this.outroCardEl.remove();
       this.outroCardEl = null;
@@ -201,3 +345,4 @@ export class OutroScene extends BaseScene {
     }
   }
 }
+
