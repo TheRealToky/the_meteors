@@ -3,7 +3,8 @@
  *
  * Ambient audio system powered by Howler.js.
  * Features:
- * - Seamless looping calm lo-fi background music (/audio/lofi_calm.mp3, CC0).
+ * - Default Track: Slower, dreamy, nostalgic solo piano ("Gymnopédie No. 1" in the style of Minecraft / C418).
+ * - Alternate Track: Warm, relaxing lo-fi beat ("Relaxed City").
  * - Custom NCS song / audio file upload with instant loop playback.
  * - Mute / Unmute and Volume slider with localStorage persistence.
  * - Floating HUD widget with animated sound wave bars.
@@ -14,6 +15,8 @@
 import { Howl } from 'howler';
 import { t, onLanguageChange } from '../i18n';
 
+export type BuiltinTrackKey = 'piano' | 'lofi';
+
 export interface AudioManagerOptions {
   defaultSrc?: string;
   defaultVolume?: number;
@@ -23,9 +26,9 @@ export class AudioManager {
   private static instance: AudioManager | null = null;
 
   private sound: Howl | null = null;
-  private currentSrc: string = '/audio/lofi_calm.mp3';
-  private trackTitle: string = '';
-  private isCustomTrack: boolean = false;
+  private currentTrackKey: BuiltinTrackKey | 'custom' = 'piano';
+  private currentSrc: string = '/audio/dreamy_piano.mp3';
+  private customTrackTitle: string = '';
   private customObjectUrl: string | null = null;
 
   private isMuted: boolean = false;
@@ -48,7 +51,6 @@ export class AudioManager {
       if (savedMuted !== null) {
         this.isMuted = savedMuted === 'true';
       } else {
-        // Default to unmuted on first visit
         this.isMuted = false;
       }
 
@@ -61,11 +63,20 @@ export class AudioManager {
       } else if (options.defaultVolume !== undefined) {
         this.volume = options.defaultVolume;
       }
+
+      const savedTrack = localStorage.getItem('lifepath_audio_track') as BuiltinTrackKey | null;
+      if (savedTrack === 'lofi') {
+        this.currentTrackKey = 'lofi';
+        this.currentSrc = '/audio/lofi_calm.mp3';
+      } else {
+        this.currentTrackKey = 'piano';
+        this.currentSrc = options.defaultSrc ?? '/audio/dreamy_piano.mp3';
+      }
     } catch (e) {
       console.warn('[AudioManager] localStorage access restricted:', e);
+      this.currentSrc = options.defaultSrc ?? '/audio/dreamy_piano.mp3';
     }
 
-    this.currentSrc = options.defaultSrc ?? '/audio/lofi_calm.mp3';
     this.createHowl();
 
     // Setup global interaction listener to unlock audio on first gesture
@@ -177,6 +188,27 @@ export class AudioManager {
     this.updateWidgetUI();
   }
 
+  public setBuiltinTrack(trackKey: BuiltinTrackKey): void {
+    if (this.customObjectUrl) {
+      URL.revokeObjectURL(this.customObjectUrl);
+      this.customObjectUrl = null;
+    }
+
+    this.currentTrackKey = trackKey;
+    this.currentSrc = trackKey === 'piano' ? '/audio/dreamy_piano.mp3' : '/audio/lofi_calm.mp3';
+    this.customTrackTitle = '';
+
+    try {
+      localStorage.setItem('lifepath_audio_track', trackKey);
+    } catch {}
+
+    this.createHowl();
+    if (!this.isMuted && this.sound) {
+      this.sound.play();
+    }
+    this.updateWidgetUI();
+  }
+
   public loadUserFile(file: File): void {
     if (!file) return;
 
@@ -187,8 +219,8 @@ export class AudioManager {
 
     this.customObjectUrl = URL.createObjectURL(file);
     this.currentSrc = this.customObjectUrl;
-    this.trackTitle = file.name.replace(/\.[^/.]+$/, '');
-    this.isCustomTrack = true;
+    this.customTrackTitle = file.name.replace(/\.[^/.]+$/, '');
+    this.currentTrackKey = 'custom';
 
     this.createHowl();
     if (!this.isMuted && this.sound) {
@@ -197,20 +229,14 @@ export class AudioManager {
     this.updateWidgetUI();
   }
 
-  public restoreDefaultTrack(): void {
-    if (this.customObjectUrl) {
-      URL.revokeObjectURL(this.customObjectUrl);
-      this.customObjectUrl = null;
+  private getTrackDisplayName(): string {
+    if (this.currentTrackKey === 'custom') {
+      return this.customTrackTitle || t('audio.custom_track');
     }
-    this.currentSrc = '/audio/lofi_calm.mp3';
-    this.trackTitle = '';
-    this.isCustomTrack = false;
-
-    this.createHowl();
-    if (!this.isMuted && this.sound) {
-      this.sound.play();
+    if (this.currentTrackKey === 'piano') {
+      return t('audio.default_track');
     }
-    this.updateWidgetUI();
+    return t('audio.track_lofi');
   }
 
   /**
@@ -251,13 +277,25 @@ export class AudioManager {
         </div>
 
         <div class="audio-track-info">
-          <span class="audio-track-icon">🎵</span>
+          <span class="audio-track-icon">${this.currentTrackKey === 'piano' ? '🎹' : '🎵'}</span>
           <div class="audio-track-meta">
             <span class="audio-track-name" id="audio-track-name">
-              ${this.isCustomTrack ? this.trackTitle : t('audio.default_track')}
+              ${this.getTrackDisplayName()}
             </span>
-            <span class="audio-track-sub">${this.isCustomTrack ? t('audio.custom_track') : 'NCS / CC0 Loop'}</span>
+            <span class="audio-track-sub" id="audio-track-sub">
+              ${this.currentTrackKey === 'piano' ? 'Minecraft / C418 Style (Gymnopédie No. 1)' : this.currentTrackKey === 'lofi' ? 'Relaxed Lo-Fi Loop' : t('audio.custom_track')}
+            </span>
           </div>
+        </div>
+
+        <!-- Builtin preset selector buttons -->
+        <div class="audio-preset-selector">
+          <button type="button" class="audio-preset-btn ${this.currentTrackKey === 'piano' ? 'active' : ''}" id="btn-preset-piano">
+            ${t('audio.track_piano')}
+          </button>
+          <button type="button" class="audio-preset-btn ${this.currentTrackKey === 'lofi' ? 'active' : ''}" id="btn-preset-lofi">
+            ${t('audio.track_lofi')}
+          </button>
         </div>
 
         <div class="audio-controls-group">
@@ -279,12 +317,6 @@ export class AudioManager {
               <span class="upload-text">${t('audio.upload_btn')}</span>
             </label>
             <input type="file" id="audio-file-input" class="sr-only" accept="audio/*" />
-
-            ${this.isCustomTrack ? `
-              <button class="audio-reset-btn" id="audio-reset-btn" type="button" title="Reset to default calm lo-fi">
-                ↺ Default
-              </button>
-            ` : ''}
           </div>
         </div>
       </div>
@@ -296,7 +328,7 @@ export class AudioManager {
     this.trackTitleEl = this.widgetEl.querySelector('#audio-track-name');
     this.statusBadgeEl = this.widgetEl.querySelector('#audio-status-tag');
 
-    // Click on toggle button: toggle mute if panel closed, or toggle popover
+    // Toggle popover panel on sound button click
     this.toggleBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.togglePanel();
@@ -306,6 +338,19 @@ export class AudioManager {
     closeBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.closePanel();
+    });
+
+    // Preset buttons
+    const btnPiano = this.widgetEl.querySelector('#btn-preset-piano');
+    btnPiano?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.setBuiltinTrack('piano');
+    });
+
+    const btnLofi = this.widgetEl.querySelector('#btn-preset-lofi');
+    btnLofi?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.setBuiltinTrack('lofi');
     });
 
     // Volume slider event
@@ -321,13 +366,6 @@ export class AudioManager {
       if (files && files.length > 0) {
         this.loadUserFile(files[0]);
       }
-    });
-
-    // Reset button event
-    const resetBtn = this.widgetEl.querySelector('#audio-reset-btn');
-    resetBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.restoreDefaultTrack();
     });
 
     // Close panel on click outside
@@ -377,10 +415,28 @@ export class AudioManager {
     }
 
     if (this.trackTitleEl) {
-      this.trackTitleEl.textContent = this.isCustomTrack
-        ? this.trackTitle
-        : t('audio.default_track');
+      this.trackTitleEl.textContent = this.getTrackDisplayName();
     }
+
+    const subEl = this.widgetEl?.querySelector('#audio-track-sub');
+    if (subEl) {
+      subEl.textContent = this.currentTrackKey === 'piano'
+        ? 'Minecraft / C418 Style (Gymnopédie No. 1)'
+        : this.currentTrackKey === 'lofi'
+        ? 'Relaxed Lo-Fi Loop'
+        : t('audio.custom_track');
+    }
+
+    const iconEl = this.widgetEl?.querySelector('.audio-track-icon');
+    if (iconEl) {
+      iconEl.textContent = this.currentTrackKey === 'piano' ? '🎹' : '🎵';
+    }
+
+    const btnPiano = this.widgetEl?.querySelector('#btn-preset-piano');
+    btnPiano?.classList.toggle('active', this.currentTrackKey === 'piano');
+
+    const btnLofi = this.widgetEl?.querySelector('#btn-preset-lofi');
+    btnLofi?.classList.toggle('active', this.currentTrackKey === 'lofi');
 
     if (this.volumeSlider) {
       this.volumeSlider.value = String(Math.round(this.volume * 100));

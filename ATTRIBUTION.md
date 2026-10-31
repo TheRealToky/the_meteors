@@ -59,5 +59,7 @@ All 3D assets and textures in this project are licensed under open licenses (CC0
 - **Stylized Traveler Rig**: Integrated KayKit rigged character with custom smooth materials, animated cape flutter, glowing eyes, and life-stage scaling.
 - **5-Strip Crowned Walkway**: Procedurally draped organic road ribbon with soft meadow edge blending.
 - **Infographic Visualizations**: Interactive D3.js demographic visualizations representing Rwanda CRVS 2025 statistical data.
-- **Ambient Lo-Fi Audio (`public/audio/lofi_calm.mp3`)**: "Relaxed City" ambient study loop, licensed under CC0 1.0 Universal / Public Domain Dedication via riccardobertolini/lofi-music. Audio system also supports player uploading their own NCS (NoCopyrightSounds) / royalty-free audio tracks.
+- **Dreamy Ambient Piano (`public/audio/dreamy_piano.mp3`)**: *Gymnopédie No. 1* by Erik Satie, performed by Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 3.0 License (ISRC USUAN1100787). Calm, nostalgic, slow solo piano piece in the stylistic tradition of C418's *Minecraft* soundtrack.
+- **Ambient Lo-Fi Audio (`public/audio/lofi_calm.mp3`)**: "Relaxed City" ambient study loop, licensed under CC0 1.0 Universal / Public Domain Dedication via riccardobertolini/lofi-music.
+- **Custom Player Audio**: In-app custom audio loader allowing players to upload and loop their own NCS / royalty-free music files.
 
