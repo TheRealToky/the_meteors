@@ -2137,6 +2137,11 @@ html, body {
   gap: 0.85rem;
 }
 
+/* Single insight card spans full width */
+.reveal-insights-grid:has(> .insight-card:only-child) {
+  grid-template-columns: 1fr;
+}
+
 @media (max-width: 600px) {
   .reveal-insights-grid {
     grid-template-columns: 1fr;

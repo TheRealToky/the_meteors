@@ -132,18 +132,8 @@ export class DeathScene extends BaseScene {
       insights: [
         {
           type: 'general',
-          title: t('common.registered_count'),
-          text: t('death.u_shape'),
-        },
-        {
-          type: 'general',
           title: t('death.sex_ratio_callout'),
           text: t('death.caption'),
-        },
-        {
-          type: 'general',
-          title: t('death.completeness_badge'),
-          text: t('caveat.registered_deaths_completeness'),
         },
       ],
       extraContent: this.dualCausesCardEl,
@@ -256,9 +246,7 @@ export class DeathScene extends BaseScene {
         <p class="death-causes-sub">${t('death.causes_dual_subtitle')}</p>
       </div>
 
-      <div class="death-perinatal-alert">
-        <span class="alert-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg></span> <strong>${t('death.perinatal_link')}</strong>
-      </div>
+
 
       <div class="death-dual-columns">
         <!-- Facility Causes Column (44.1%) -->
