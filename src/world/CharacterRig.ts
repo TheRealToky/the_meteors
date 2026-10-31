@@ -46,6 +46,11 @@ export class CharacterRig {
   private deathAction: THREE.AnimationAction | null = null;
   private currentAction: THREE.AnimationAction | null = null;
 
+  // Material tracking for dynamic gender recoloring
+  private gltfClothingMeshes: THREE.Mesh[] = [];
+  private gltfLimbMeshes: THREE.Mesh[] = [];
+  private gltfEyeMaterial: THREE.MeshBasicMaterial | null = null;
+
   // Procedural fallback limbs & cape
   private capeMesh: THREE.Mesh | null = null;
   private capeOriginalPositions: Float32Array | null = null;
@@ -55,12 +60,19 @@ export class CharacterRig {
   private rightLeg: THREE.Group = new THREE.Group();
   private headGroup: THREE.Group = new THREE.Group();
 
+  // Procedural material tracking
+  private proceduralRobeMat: THREE.MeshStandardMaterial | null = null;
+  private proceduralCapeMat: THREE.MeshStandardMaterial | null = null;
+  private proceduralTrimMat: THREE.MeshBasicMaterial | null = null;
+  private proceduralEyeMat: THREE.MeshBasicMaterial | null = null;
+
   // Footstep trail particles
   private footstepGroup: THREE.Points | null = null;
   private footstepPositions: Float32Array | null = null;
   private footstepAlphas: Float32Array | null = null;
   private footstepSpawnIndex: number = 0;
   private footstepTimer: number = 0;
+  private footstepMaterial: THREE.ShaderMaterial | null = null;
 
   // Clean disposal tracking
   private disposables: Array<THREE.BufferGeometry | THREE.Material | THREE.Texture> = [];
@@ -95,7 +107,87 @@ export class CharacterRig {
 
     this.buildFootstepTrail();
     this.isLoaded = true;
+    this.applySexColors();
     this.applyProgress(this.progress, true);
+  }
+
+  /**
+   * Set character sex / gender and immediately update all visual materials
+   * without modifying model shape, geometry, scale or animations.
+   */
+  public setSex(sex: 'male' | 'female'): void {
+    this.sex = sex;
+    this.applySexColors();
+  }
+
+  public getSex(): 'male' | 'female' {
+    return this.sex;
+  }
+
+  /**
+   * Applies the signature Pink (female) or Blue (male) palette across
+   * the character's clothing, eyes, and footstep particles.
+   */
+  private applySexColors(): void {
+    const isFemale = this.sex === 'female';
+
+    // Pink (female) vs Blue (male) color tokens:
+    // Rwandan CRVS palette aligned: Female #FB7185 / #FF6B8B, Male #38BDF8 / #4DA8DA
+    const clothingColor = isFemale ? new THREE.Color('#fb7185') : new THREE.Color('#38bdf8');
+    const clothingEmissive = isFemale ? new THREE.Color('#ff3366') : new THREE.Color('#0284c7');
+    const limbColor = isFemale ? new THREE.Color('#ffb3c1') : new THREE.Color('#bae6fd');
+    const limbEmissive = isFemale ? new THREE.Color('#ff6688') : new THREE.Color('#0ea5e9');
+    const eyeColor = isFemale ? new THREE.Color('#ffd6e0') : new THREE.Color('#e0f2fe');
+    const footstepColor = isFemale ? new THREE.Color('#fb7185') : new THREE.Color('#38bdf8');
+
+    // 1. Update GLTF Clothing Meshes (Cape, Hood, Body)
+    for (const mesh of this.gltfClothingMeshes) {
+      if (mesh.material instanceof THREE.MeshStandardMaterial) {
+        mesh.material.color.copy(clothingColor);
+        mesh.material.emissive.copy(clothingEmissive);
+        mesh.material.emissiveIntensity = 0.22;
+        mesh.material.needsUpdate = true;
+      }
+    }
+
+    // 2. Update GLTF Limbs (Arms, Legs)
+    for (const mesh of this.gltfLimbMeshes) {
+      if (mesh.material instanceof THREE.MeshStandardMaterial) {
+        mesh.material.color.copy(limbColor);
+        mesh.material.emissive.copy(limbEmissive);
+        mesh.material.emissiveIntensity = 0.10;
+        mesh.material.needsUpdate = true;
+      }
+    }
+
+    // 3. Update GLTF Eyes
+    if (this.gltfEyeMaterial) {
+      this.gltfEyeMaterial.color.copy(eyeColor);
+      this.gltfEyeMaterial.needsUpdate = true;
+    }
+
+    // 4. Update Procedural Materials
+    if (this.proceduralRobeMat) {
+      this.proceduralRobeMat.color.copy(clothingColor);
+      this.proceduralRobeMat.needsUpdate = true;
+    }
+    if (this.proceduralCapeMat) {
+      this.proceduralCapeMat.color.copy(isFemale ? new THREE.Color('#f43f5e') : new THREE.Color('#0284c7'));
+      this.proceduralCapeMat.needsUpdate = true;
+    }
+    if (this.proceduralTrimMat) {
+      this.proceduralTrimMat.color.copy(isFemale ? new THREE.Color('#ffe4e6') : new THREE.Color('#e0f2fe'));
+      this.proceduralTrimMat.needsUpdate = true;
+    }
+    if (this.proceduralEyeMat) {
+      this.proceduralEyeMat.color.copy(eyeColor);
+      this.proceduralEyeMat.needsUpdate = true;
+    }
+
+    // 5. Update Footstep Particle Motes
+    if (this.footstepMaterial && this.footstepMaterial.uniforms?.uColor) {
+      this.footstepMaterial.uniforms.uColor.value.copy(footstepColor);
+    }
   }
 
   /**
@@ -116,27 +208,36 @@ export class CharacterRig {
       // Scale model to ~1.7m tall (KayKit base height is ~2.17m)
       characterScene.scale.setScalar(0.78);
 
-      const isFemale = this.sex === 'female';
-      const eyeGlowColor = isFemale ? 0xfff6cf : 0xe0f7ff;
+      this.gltfClothingMeshes = [];
+      this.gltfLimbMeshes = [];
 
-      // Enhance materials for soft stylized look
+      // Enhance materials for soft stylized look and track clothing meshes for tinting
       characterScene.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = true;
           child.receiveShadow = true;
 
           if (child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach((mat) => {
-              if (mat instanceof THREE.MeshStandardMaterial) {
-                mat.roughness = 0.72;
-                mat.metalness = 0.04;
-                if (mat.map) {
-                  mat.map.colorSpace = THREE.SRGBColorSpace;
-                }
+            // Clone so individual meshes can be uniquely colored
+            const originalMat = Array.isArray(child.material) ? child.material[0] : child.material;
+            const clonedMat = originalMat.clone() as THREE.Material;
+
+            if (clonedMat instanceof THREE.MeshStandardMaterial) {
+              clonedMat.roughness = 0.68;
+              clonedMat.metalness = 0.04;
+              if (clonedMat.map) {
+                clonedMat.map.colorSpace = THREE.SRGBColorSpace;
               }
-              this.disposables.push(mat);
-            });
+            }
+            child.material = clonedMat;
+            this.disposables.push(clonedMat);
+
+            const name = child.name;
+            if (name.includes('Cape') || name.includes('Head') || name.includes('Body')) {
+              this.gltfClothingMeshes.push(child);
+            } else if (name.includes('Arm') || name.includes('Leg')) {
+              this.gltfLimbMeshes.push(child);
+            }
           }
           if (child.geometry) {
             child.geometry.computeVertexNormals();
@@ -156,8 +257,9 @@ export class CharacterRig {
       if (headBone) {
         const eyeGeo = new THREE.SphereGeometry(0.042, 8, 8);
         this.disposables.push(eyeGeo);
-        const eyeMat = new THREE.MeshBasicMaterial({ color: eyeGlowColor });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
         this.disposables.push(eyeMat);
+        this.gltfEyeMaterial = eyeMat;
 
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
         leftEye.position.set(-0.065, 0.09, 0.19);
@@ -200,6 +302,7 @@ export class CharacterRig {
       }
 
       this.modelRoot.add(characterScene);
+      this.applySexColors();
       return true;
     } catch (err) {
       console.warn('[CharacterRig] Failed to load GLTF character model, falling back to procedural:', err);
@@ -211,19 +314,14 @@ export class CharacterRig {
    * Procedural Sky: Children of the Light traveler fallback.
    */
   private buildSkyTravelerFallback(): void {
-    const isFemale = this.sex === 'female';
-    const robeColor = isFemale ? 0xe58b76 : 0x4a7eb0;
-    const capeColor = isFemale ? 0xdf6a44 : 0x2e5f96;
-    const capeTrimColor = isFemale ? 0xffdf80 : 0x8ce3ff;
-    const eyeGlowColor  = isFemale ? 0xfff6cf : 0xe0f7ff;
-
     const robeMat = new THREE.MeshStandardMaterial({
-      color: robeColor,
+      color: 0xffffff,
       roughness: 0.72,
       metalness: 0.02,
       flatShading: false,
     });
     this.disposables.push(robeMat);
+    this.proceduralRobeMat = robeMat;
 
     const cowlMat = new THREE.MeshStandardMaterial({
       color: 0x282329,
@@ -233,23 +331,26 @@ export class CharacterRig {
     });
     this.disposables.push(cowlMat);
 
-    const eyeMat = new THREE.MeshBasicMaterial({ color: eyeGlowColor });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     this.disposables.push(eyeMat);
+    this.proceduralEyeMat = eyeMat;
 
     const capeMat = new THREE.MeshStandardMaterial({
-      color: capeColor,
+      color: 0xffffff,
       roughness: 0.65,
       metalness: 0.04,
       side: THREE.DoubleSide,
       flatShading: false,
     });
     this.disposables.push(capeMat);
+    this.proceduralCapeMat = capeMat;
 
     const trimMat = new THREE.MeshBasicMaterial({
-      color: capeTrimColor,
+      color: 0xffffff,
       side: THREE.DoubleSide,
     });
     this.disposables.push(trimMat);
+    this.proceduralTrimMat = trimMat;
 
     const skinMat = new THREE.MeshStandardMaterial({
       color: 0x9e6c4c,
@@ -420,6 +521,7 @@ export class CharacterRig {
       blending: THREE.AdditiveBlending,
     });
     this.disposables.push(mat);
+    this.footstepMaterial = mat;
 
     this.footstepGroup = new THREE.Points(geo, mat);
     this.scene.add(this.footstepGroup);

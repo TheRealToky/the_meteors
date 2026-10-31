@@ -102,10 +102,11 @@ async function bootstrap() {
   const cameraRail = new CameraRail(camera, pathCurve);
 
   // 11. Create CharacterRig (Sky Traveler with animated flowing cape and glowing eyes)
+  const initialSex = (new URLSearchParams(window.location.search).get('sex') === 'male') ? 'male' : 'female';
   const characterRig = new CharacterRig({
     curve: pathCurve,
     scene,
-    sex: 'female',
+    sex: initialSex,
   });
   characterRig.setLifeStage(0); // newborn at birth station
   characterRig.load().catch((err) => console.warn('[CharacterRig] load error:', err));
@@ -243,6 +244,14 @@ async function bootstrap() {
       playerController.glideTo(1.0, 3.0, () => {
         director.goToScene('outro');
       });
+    }
+  });
+
+  // 15. Dynamically recolor character model when player chooses sex
+  window.addEventListener('lifepath:setSex', (e: Event) => {
+    const customEvt = e as CustomEvent<{ sex: 'male' | 'female' }>;
+    if (customEvt.detail?.sex) {
+      characterRig.setSex(customEvt.detail.sex);
     }
   });
 

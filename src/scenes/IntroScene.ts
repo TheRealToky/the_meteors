@@ -47,8 +47,13 @@ export class IntroScene extends BaseScene {
       this.startScreen = new StartScreen({
         container: ctx.uiContainer,
         initialState: ctx.state,
+        onSexChange: (sex) => {
+          ctx.updateState({ sex });
+          window.dispatchEvent(new CustomEvent('lifepath:setSex', { detail: { sex } }));
+        },
         onStart: (lang, sex) => {
           ctx.updateState({ lang, sex });
+          window.dispatchEvent(new CustomEvent('lifepath:setSex', { detail: { sex } }));
           setLanguage(lang).then(() => {
             if (ctx.uiContainer) {
               ctx.uiContainer.innerHTML = '';

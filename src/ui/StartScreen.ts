@@ -29,6 +29,8 @@ export interface StartScreenOptions {
   onStart: (lang: SupportedLocale, sex: SexChoice) => void;
   /** Called whenever the language changes so the caller can reload i18n */
   onLanguageChange: (lang: SupportedLocale) => Promise<void>;
+  /** Called whenever the selected sex changes to dynamically tint the character */
+  onSexChange?: (sex: SexChoice) => void;
 }
 
 const LANGUAGES: Array<{ code: SupportedLocale; label: string }> = [
@@ -175,6 +177,11 @@ export class StartScreen {
 
     this.container.appendChild(this.root);
 
+    // If sex was pre-selected from URL or state, apply it immediately
+    if (this.chosenSex) {
+      this.options.onSexChange?.(this.chosenSex);
+    }
+
     // If lang was pre-selected from URL, apply it immediately
     this.options.onLanguageChange(this.chosenLang).catch(console.error);
   }
@@ -209,6 +216,7 @@ export class StartScreen {
       btn.setAttribute('aria-pressed', String(active));
     }
 
+    this.options.onSexChange?.(sex);
     this.syncStartButton();
   }
 
