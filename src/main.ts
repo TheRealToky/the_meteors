@@ -200,7 +200,7 @@ async function bootstrap() {
       ageCounter.setAge(targetAge, 1.5);
 
       // Transition sky dome, sunlight, and fog to match life stage mood
-      skySystem.setMood(sceneId, 2.2);
+      skySystem.setMood(sceneId, 1.2);
 
       // Smoothly scale traveler model across life stages
       characterRig.setLifeStage(targetAge);
@@ -275,8 +275,10 @@ async function bootstrap() {
     btn.addEventListener('click', () => {
       const targetScene = (btn as HTMLElement).dataset.scene as SceneId;
       if (targetScene) {
+        // Skip the pre-glide; director.goToScene handles its own camera animation.
+        // A short glide (0.4s) still gives tactile feedback without adding to wait time.
         const stationT = cameraRail.getStationT(targetScene);
-        playerController.glideTo(stationT, 1.8, () => {
+        playerController.glideTo(stationT, 0.4, () => {
           director.goToScene(targetScene);
         });
       }

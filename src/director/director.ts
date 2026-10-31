@@ -153,7 +153,7 @@ export class Director {
     }
   }
 
-  public async goToScene(targetId: SceneId, duration = 2.2): Promise<void> {
+  public async goToScene(targetId: SceneId, duration = 1.2): Promise<void> {
     if (this.isTransitioning || targetId === this.currentSceneId) {
       if (targetId === this.currentSceneId && !this.currentScene) {
         // First start
