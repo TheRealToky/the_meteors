@@ -16,6 +16,10 @@ import { createSkySystem } from './world/sky';
 import { createStationsManager } from './world/stations';
 import { CharacterRig } from './world/CharacterRig';
 import { AudioManager } from './audio/AudioManager';
+import { WaypointArrow } from './world/WaypointArrow';
+import { PlayerController } from './world/PlayerController';
+import { QuestHUD } from './ui/QuestHUD';
+import { getMilestoneById } from './world/milestones';
 
 // Station ages for the life path
 const SCENE_AGES: Record<SceneId, number> = {
@@ -151,7 +155,29 @@ async function bootstrap() {
     }
   }
 
-  // 11. Initialize Director (State Machine)
+  // 11. Create Big Red Spinning Waypoint Arrow & Quest HUD
+  const waypointArrow = new WaypointArrow({
+    scene,
+    getHeight: terrain.getHeight,
+  });
+
+  const questHud = new QuestHUD({
+    container: document.getElementById('ui-overlay') as HTMLElement,
+  });
+
+  // 12. Create Player Controller for WASD Navigation
+  const playerController = new PlayerController({
+    curve: pathCurve,
+    cameraRail,
+    characterRig,
+    getHeight: terrain.getHeight,
+    onMilestoneReached: (milestone) => {
+      waypointArrow.hide();
+      director.goToScene(milestone.id);
+    },
+  });
+
+  // 13. Initialize Director (State Machine)
   const director = new Director({
     scene,
     camera,
@@ -180,7 +206,44 @@ async function bootstrap() {
 
       // Update station hint & labels
       updateStaticUI(sceneId);
+
+      // Manage HUD and Controls depending on whether we are in a modal scene or walking
+      if (sceneId === 'intro') {
+        questHud.hide();
+        waypointArrow.hide();
+        playerController.lock();
+      } else if (sceneId === 'outro') {
+        questHud.hide();
+        waypointArrow.hide();
+        playerController.lock();
+      } else {
+        // Modal scene active: hide arrow and pause walking
+        waypointArrow.hide();
+        playerController.lock();
+      }
     },
+  });
+
+  // 14. Listen for Walking Quest Transitions between Milestones
+  window.addEventListener('lifepath:walkToMilestone', (e: Event) => {
+    const customEvt = e as CustomEvent<{ id: SceneId }>;
+    const targetId = customEvt.detail?.id;
+    const milestone = getMilestoneById(targetId);
+
+    if (milestone) {
+      playerController.setActiveMilestone(milestone);
+      playerController.unlock();
+      questHud.setMilestone(milestone);
+      questHud.show();
+      waypointArrow.setTargetVector(milestone.housePosition, milestone.arrowHeight);
+      waypointArrow.show();
+    } else if (targetId === 'outro') {
+      questHud.hide();
+      waypointArrow.hide();
+      playerController.glideTo(1.0, 3.0, () => {
+        director.goToScene('outro');
+      });
+    }
   });
 
   // Listen to i18n language changes to refresh global UI
@@ -192,12 +255,15 @@ async function bootstrap() {
   updateStaticUI(director.getCurrentSceneId());
   skySystem.setMood(director.getCurrentSceneId(), 0);
 
-  // 13. Wire UI Interactions
+  // 15. Wire UI Navigation (Click to glide / fast-travel)
   document.querySelectorAll('.station-step').forEach((btn) => {
     btn.addEventListener('click', () => {
       const targetScene = (btn as HTMLElement).dataset.scene as SceneId;
       if (targetScene) {
-        director.goToScene(targetScene);
+        const stationT = cameraRail.getStationT(targetScene);
+        playerController.glideTo(stationT, 1.8, () => {
+          director.goToScene(targetScene);
+        });
       }
     });
   });
@@ -216,25 +282,21 @@ async function bootstrap() {
     });
   }
 
-  // Keyboard navigation (Left / Right arrow keys)
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight' || e.key === ' ') {
-      director.nextScene();
-    } else if (e.key === 'ArrowLeft') {
-      director.prevScene();
-    }
-  });
-
-  // 14. Start Director and Animation Loop
+  // 16. Start Director and Animation Loop
   await director.start();
 
   const loop = new AnimationLoop(renderer, scene, camera);
   loop.addCallback((dt, elapsed) => {
     director.update(dt, elapsed);
 
-    // Keep character at the same rail progress as the camera rail
-    characterRig.setProgress(cameraRail.getProgress());
+    // Update WASD Player Controller and 3D Waypoint Arrow
+    playerController.update(dt);
+    waypointArrow.update(dt, elapsed);
     characterRig.update(dt);
+
+    if (!playerController.isInputLocked()) {
+      questHud.updateDistance(playerController.getDistanceToActiveMilestone());
+    }
 
     // Update dreamlike atmospheric systems
     skySystem.update(dt, elapsed);

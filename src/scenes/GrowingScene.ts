@@ -12,16 +12,13 @@ export class GrowingScene extends BaseScene {
   // Overlay DOM
   private overlayContainer: HTMLElement | null = null;
   private cardEl: HTMLElement | null = null;
-  private skipBtn: HTMLElement | null = null;
   private titleEl: HTMLElement | null = null;
-  private subtitleEl: HTMLElement | null = null;
   private captionEl: HTMLElement | null = null;
 
   // Animations & Timers
   private timelineTween: Tween | null = null;
   private autoAdvanceTimer: number | null = null;
   private keyListener: ((e: KeyboardEvent) => void) | null = null;
-  private isSkipped: boolean = false;
   private unregisterI18n: (() => void) | null = null;
 
   async load(): Promise<void> {
@@ -36,34 +33,22 @@ export class GrowingScene extends BaseScene {
 
   async enter(ctx: SceneContext): Promise<void> {
     await super.enter(ctx);
-    this.isSkipped = false;
     ctx.scene.add(this.group);
-
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // 1. Build Overlay Card
     this.createDomOverlay(ctx.uiContainer);
 
-    // 2. Start Rail Motion & Timelapse Sequence
-    const startT = 0.16; // birth station
-    const targetT = 0.33; // growing station
-    const duration = prefersReducedMotion ? 2.5 : 14.0;
+    // 2. Position camera rail at School of Life station (t = 0.33)
+    const targetT = 0.33;
+    ctx.cameraRail.setProgress(targetT);
 
-    // Camera rail motion
-    ctx.cameraRail.setProgress(startT);
-    this.timelineTween = ctx.cameraRail.animateTo(targetT, duration, 'power1.inOut', () => {
-      if (!this.isSkipped) {
-        this.finishAndAdvance();
-      }
-    });
-
-    // Wire Keyboard Listener for Skip (Space, Enter, ArrowRight)
+    // Wire Keyboard Listener (Enter or Space to continue)
     this.keyListener = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'Enter' || e.key === 'ArrowRight') {
+      if (e.code === 'Enter' || e.code === 'Space') {
+        const target = e.target as HTMLElement;
+        if (target && target.tagName === 'BUTTON') return; // let button handler run
         e.preventDefault();
-        this.skip();
+        this.finishAndAdvance();
       }
     };
     window.addEventListener('keydown', this.keyListener);
@@ -81,40 +66,42 @@ export class GrowingScene extends BaseScene {
     this.cardEl = document.createElement('div');
     this.cardEl.className = 'growing-card glass-panel';
     this.cardEl.setAttribute('role', 'region');
-    this.cardEl.setAttribute('aria-label', t('growing.title'));
+    this.cardEl.setAttribute('aria-label', "The School of Life");
 
     this.cardEl.innerHTML = `
       <div class="growing-card-header">
-        <span class="station-tag">Station 2 · Youth</span>
-        <button id="btn-skip-timelapse" class="skip-btn" tabindex="0" title="Skip animation">
-          ${t('growing.skip')}
-        </button>
+        <span class="station-tag">Station 2 · The School of Life</span>
       </div>
 
-      <h2 class="growing-title">${t('growing.title')}</h2>
-      <p class="growing-subtitle">${t('growing.subtitle')}</p>
+      <h2 class="growing-title">The School of Life</h2>
+      <p class="growing-subtitle">Growing up across the terraced hills — inclusive learning through formal education, crafts, and community life.</p>
       
       <div class="growing-milestone-pills">
-        <span class="pill-badge">Primary Education</span>
-        <span class="pill-badge">Terraced Agriculture</span>
-        <span class="pill-badge">Community Health</span>
+        <span class="pill-badge">Primary & Vocational Education</span>
+        <span class="pill-badge">Agricultural Wisdom</span>
+        <span class="pill-badge">Youth Median Age: 19 Yrs</span>
       </div>
 
       <div class="growing-caption-box">
         <p class="growing-caption">${t('growing.caption')}</p>
       </div>
+
+      <div class="growing-actions" style="margin-top: 1.25rem; display: flex; justify-content: flex-end;">
+        <button id="btn-continue-marriage" class="primary-btn" tabindex="0">
+          Continue to Town Hall (Marriage) →
+        </button>
+      </div>
     `;
 
-    this.skipBtn = this.cardEl.querySelector('#btn-skip-timelapse');
-    if (this.skipBtn) {
-      this.skipBtn.addEventListener('click', (e) => {
+    const continueBtn = this.cardEl.querySelector('#btn-continue-marriage');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.skip();
+        this.finishAndAdvance();
       });
     }
 
     this.titleEl = this.cardEl.querySelector('.growing-title');
-    this.subtitleEl = this.cardEl.querySelector('.growing-subtitle');
     this.captionEl = this.cardEl.querySelector('.growing-caption');
 
     this.overlayContainer.appendChild(this.cardEl);
@@ -122,23 +109,11 @@ export class GrowingScene extends BaseScene {
   }
 
   private updateLabels(): void {
-    if (this.titleEl) this.titleEl.textContent = t('growing.title');
-    if (this.subtitleEl) this.subtitleEl.textContent = t('growing.subtitle');
+    if (this.titleEl) this.titleEl.textContent = "The School of Life";
     if (this.captionEl) this.captionEl.textContent = t('growing.caption');
-    if (this.skipBtn) this.skipBtn.textContent = `${t('growing.skip')} ⏩`;
   }
 
   public skip(): void {
-    if (this.isSkipped) return;
-    this.isSkipped = true;
-
-    if (this.timelineTween) {
-      this.timelineTween.kill();
-      this.timelineTween = null;
-    }
-    if (this.ctx) {
-      this.ctx.cameraRail.setProgress(0.33);
-    }
     this.finishAndAdvance();
   }
 

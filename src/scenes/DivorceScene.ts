@@ -148,7 +148,10 @@ export class DivorceScene extends BaseScene {
         });
       },
       onContinue: () => {
-        ctx.goToScene('death');
+        if (ctx.uiContainer) {
+          ctx.uiContainer.innerHTML = '';
+        }
+        window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'death' } }));
       },
     });
 

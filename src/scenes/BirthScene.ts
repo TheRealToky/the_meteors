@@ -315,7 +315,11 @@ export class BirthScene extends BaseScene {
           this.ctx?.updateState({ name });
         },
         onContinue: () => {
-          this.ctx?.goToScene('growing');
+          if (this.overlayContainer) {
+            this.overlayContainer.remove();
+            this.overlayContainer = null;
+          }
+          window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'growing' } }));
         },
       });
     }

@@ -50,7 +50,10 @@ export class IntroScene extends BaseScene {
         onStart: (lang, sex) => {
           ctx.updateState({ lang, sex });
           setLanguage(lang).then(() => {
-            ctx.goToScene('birth');
+            if (ctx.uiContainer) {
+              ctx.uiContainer.innerHTML = '';
+            }
+            window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'birth' } }));
           });
         },
         onLanguageChange: async (lang) => {

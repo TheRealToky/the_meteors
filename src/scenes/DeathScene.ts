@@ -152,7 +152,10 @@ export class DeathScene extends BaseScene {
       continueBtnKey: 'death.continue_btn',
       onGuessSubmitted: () => {},
       onContinue: () => {
-        ctx.goToScene('outro');
+        if (ctx.uiContainer) {
+          ctx.uiContainer.innerHTML = '';
+        }
+        window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'outro' } }));
       },
     });
 

@@ -138,7 +138,10 @@ export class MarriageScene extends BaseScene {
         });
       },
       onContinue: () => {
-        ctx.goToScene('divorce');
+        if (ctx.uiContainer) {
+          ctx.uiContainer.innerHTML = '';
+        }
+        window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'divorce' } }));
       },
     });
 

@@ -246,6 +246,63 @@ export function createStationsManager(
     return cairn;
   };
 
+  /**
+   * Builds a stylized 3D Red Cross emblem for the Health Clinic
+   */
+  const buildMedicalCross = (scale = 1.0): THREE.Group => {
+    const cross = new THREE.Group();
+    const crossMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    materialsToDispose.push(crossMat);
+
+    const b1 = new THREE.BoxGeometry(0.35 * scale, 1.2 * scale, 0.15 * scale);
+    const b2 = new THREE.BoxGeometry(1.2 * scale, 0.35 * scale, 0.15 * scale);
+    geometriesToDispose.push(b1, b2);
+
+    cross.add(new THREE.Mesh(b1, crossMat));
+    cross.add(new THREE.Mesh(b2, crossMat));
+    return cross;
+  };
+
+  /**
+   * Builds a stylized 3D Scales of Justice emblem for the Courtroom
+   */
+  const buildCourtEmblem = (scale = 1.0): THREE.Group => {
+    const emblem = new THREE.Group();
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0xd97706,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    materialsToDispose.push(brassMat);
+
+    // Pillar
+    const stemGeo = new THREE.CylinderGeometry(0.06 * scale, 0.08 * scale, 1.2 * scale, 8);
+    // Crossbar
+    const barGeo = new THREE.CylinderGeometry(0.04 * scale, 0.04 * scale, 1.1 * scale, 8);
+    // Bowls
+    const bowlGeo = new THREE.ConeGeometry(0.24 * scale, 0.14 * scale, 12);
+    geometriesToDispose.push(stemGeo, barGeo, bowlGeo);
+
+    const stem = new THREE.Mesh(stemGeo, brassMat);
+    stem.position.y = 0.6 * scale;
+    emblem.add(stem);
+
+    const bar = new THREE.Mesh(barGeo, brassMat);
+    bar.rotation.z = Math.PI * 0.5;
+    bar.position.y = 1.15 * scale;
+    emblem.add(bar);
+
+    const leftBowl = new THREE.Mesh(bowlGeo, brassMat);
+    leftBowl.position.set(-0.5 * scale, 0.95 * scale, 0);
+    emblem.add(leftBowl);
+
+    const rightBowl = new THREE.Mesh(bowlGeo, brassMat);
+    rightBowl.position.set(0.5 * scale, 0.95 * scale, 0);
+    emblem.add(rightBowl);
+
+    return emblem;
+  };
+
   // Place architectural landmarks at key stations
   const pavilions: Record<string, THREE.Group> = {};
   STATION_COORDINATES.forEach((coord) => {
@@ -253,24 +310,40 @@ export function createStationsManager(
       pavilions[coord.id] = buildRwandanPavilion(coord.x - 7.0, coord.z + 5.0, 1.25);
       group.add(pavilions[coord.id]);
     } else if (coord.id === 'birth') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x + 8.5, coord.z - 3.5, 1.1);
-      group.add(pavilions[coord.id]);
+      // 1. District Maternity Health Center (Hospital)
+      const clinicPavilion = buildRwandanPavilion(coord.x + 8.5, coord.z - 3.5, 1.15);
+      const cross = buildMedicalCross(0.9);
+      cross.position.set(0, 3.8, 2.8);
+      clinicPavilion.add(cross);
+      pavilions[coord.id] = clinicPavilion;
+      group.add(clinicPavilion);
       group.add(buildStoneCairn(coord.x - 3.5, coord.z + 4.0, 1.0));
     } else if (coord.id === 'growing') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x - 9.0, coord.z - 6.0, 1.2);
-      group.add(pavilions[coord.id]);
+      // 2. The School of Life (Inclusive education & communal wisdom)
+      const schoolPavilion = buildRwandanPavilion(coord.x - 9.0, coord.z - 6.0, 1.25);
+      pavilions[coord.id] = schoolPavilion;
+      group.add(schoolPavilion);
       group.add(buildStoneCairn(coord.x + 4.5, coord.z + 3.0, 0.9));
     } else if (coord.id === 'marriage') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x + 8.0, coord.z + 6.0, 1.35);
-      group.add(pavilions[coord.id]);
+      // 3. Town Hall (Umurenge Civil Registry)
+      const townHallPavilion = buildRwandanPavilion(coord.x + 8.0, coord.z + 6.0, 1.35);
+      pavilions[coord.id] = townHallPavilion;
+      group.add(townHallPavilion);
       group.add(buildStoneCairn(coord.x - 4.5, coord.z - 4.0, 1.1));
     } else if (coord.id === 'divorce') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x - 8.5, coord.z + 7.0, 1.15);
-      group.add(pavilions[coord.id]);
+      // 4. Community Justice Courtroom
+      const courtPavilion = buildRwandanPavilion(coord.x - 8.5, coord.z + 7.0, 1.2);
+      const courtEmblem = buildCourtEmblem(0.9);
+      courtEmblem.position.set(0, 3.6, 2.7);
+      courtPavilion.add(courtEmblem);
+      pavilions[coord.id] = courtPavilion;
+      group.add(courtPavilion);
       group.add(buildStoneCairn(coord.x + 4.0, coord.z - 3.5, 1.0));
     } else if (coord.id === 'death') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x + 9.5, coord.z - 6.0, 1.2);
-      group.add(pavilions[coord.id]);
+      // 5. Sunset Sanctuary & Memory Pavilion
+      const sanctuaryPavilion = buildRwandanPavilion(coord.x + 9.5, coord.z - 6.0, 1.3);
+      pavilions[coord.id] = sanctuaryPavilion;
+      group.add(sanctuaryPavilion);
       group.add(buildStoneCairn(coord.x - 5.0, coord.z + 3.5, 1.2));
       group.add(buildStoneCairn(coord.x - 7.0, coord.z - 2.0, 0.85));
     } else if (coord.id === 'outro') {
@@ -347,7 +420,19 @@ export function createStationsManager(
       placeProp(ambulanceModel, 42.0, -22.0, 1.1, -1.2);
     }
 
-    // 2. Growing Up Station (Youth rest bench, terrace planters)
+    // 2. Growing Up / School of Life Station (Youth study desk, ledgers, rest bench, terrace planters)
+    const schoolPavilion = pavilions['growing'];
+    if (schoolPavilion) {
+      if (deskModel) {
+        placeInPavilion(schoolPavilion, deskModel, 0, 0, 1.6, 0.4);
+      }
+      if (booksModel) {
+        const books = booksModel.clone(true);
+        books.position.set(0.1, 1.05, 0.05);
+        books.scale.set(2.0, 2.0, 2.0);
+        schoolPavilion.add(books);
+      }
+    }
     if (benchModel) {
       placeProp(benchModel, 24.0, 26.0, 1.8, 2.2);
     }
