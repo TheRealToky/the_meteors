@@ -76,11 +76,7 @@ export class GrowingScene extends BaseScene {
       <h2 class="growing-title">The School of Life</h2>
       <p class="growing-subtitle">Growing up across the terraced hills — inclusive learning through formal education, crafts, and community life.</p>
       
-      <div class="growing-milestone-pills">
-        <span class="pill-badge">Primary & Vocational Education</span>
-        <span class="pill-badge">Agricultural Wisdom</span>
-        <span class="pill-badge">Youth Median Age: 19 Yrs</span>
-      </div>
+
 
       <div class="growing-caption-box">
         <p class="growing-caption">${t('growing.caption')}</p>
