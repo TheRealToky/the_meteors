@@ -2,6 +2,7 @@
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+.agents/
 
 # ---------- Node / Vite ----------
 node_modules/
