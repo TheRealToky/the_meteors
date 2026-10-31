@@ -40,7 +40,7 @@
   "birth.completeness": "La complétude de l'enregistrement des naissances a atteint 92,9 % en 2025.",
   "birth.caption": "En 2025, exactement 356 838 naissances vivantes ont été enregistrées au Rwanda (180 795 garçons et 176 043 filles).",
   "birth.count_caption": "Naissances vivantes enregistrées en 2025 : {count}",
-  "birth.tap_to_be_born": "Touchez l'écran ou appuyez sur Espace pour naître",
+  "birth.tap_to_be_born": "Appuyez ici pour commencer le voyage\n(Vérifiez le coin gauche pour les instructions)",
   "birth.you_marker": "Vous êtes le nouveau-né n°{index} ({sex})",
   "birth.aria_announcement": "En 2025, {count} naissances ont été enregistrées au Rwanda. Vous êtes le nouveau-né n°{index} ({sex}).",
   "birth.grow_up_btn": "Grandir (Station Jeunesse) →",

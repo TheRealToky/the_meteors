@@ -35,6 +35,19 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+/* Screen-reader-only accessible hiding utility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border-width: 0 !important;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -1119,13 +1132,16 @@ html, body {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5.5rem 1.5rem 6.5rem 1.5rem;
   box-sizing: border-box;
   z-index: 20;
+}
+
+.birth-prompt-btn-wrapper {
+  position: absolute;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 .birth-hud-box {
@@ -1159,13 +1175,18 @@ html, body {
 
 .birth-prompt-btn {
   pointer-events: auto;
-  min-height: 48px;
-  min-width: 220px;
-  padding: 0.85rem 2rem;
+  min-height: 56px;
+  min-width: 260px;
+  max-width: 90vw;
+  padding: 0.85rem 2.2rem;
   font-family: var(--font-heading);
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  text-align: center;
+  white-space: pre-line;
   border-radius: var(--radius-md);
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: #ffffff;
@@ -1174,6 +1195,22 @@ html, body {
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, opacity 0.3s ease;
   animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.birth-prompt-btn .prompt-main-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.birth-prompt-btn .prompt-sub-text {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #f0fdf4;
+  opacity: 0.92;
+  letter-spacing: 0;
+  line-height: 1.25;
 }
 
 .birth-prompt-btn:hover {

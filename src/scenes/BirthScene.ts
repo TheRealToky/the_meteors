@@ -4,7 +4,7 @@ import { BaseScene } from './SceneBase';
 import { SceneContext, SceneId } from '../director/types';
 import { BirthCloud, BirthData } from '../world/BirthCloud';
 import { BirthOverlays } from '../ui/BirthOverlays';
-import { t, formatNumber, getLanguage } from '../i18n';
+import { t, formatNumber } from '../i18n';
 
 export class BirthScene extends BaseScene {
   id: SceneId = 'birth';
@@ -14,7 +14,6 @@ export class BirthScene extends BaseScene {
 
   // DOM elements
   private overlayContainer: HTMLElement | null = null;
-  private captionEl: HTMLElement | null = null;
   private promptEl: HTMLElement | null = null;
   private ariaLiveEl: HTMLElement | null = null;
   private overlaySlotEl: HTMLElement | null = null;
@@ -25,7 +24,6 @@ export class BirthScene extends BaseScene {
   private diveTween: gsap.core.Tween | null = null;
   private pulseTimeoutId: number | null = null;
   private isBorn: boolean = false;
-  private isCounting: boolean = true;
   private keyListener: ((e: KeyboardEvent) => void) | null = null;
   private clickListener: ((e: MouseEvent | TouchEvent) => void) | null = null;
 
@@ -53,7 +51,6 @@ export class BirthScene extends BaseScene {
   async enter(ctx: SceneContext): Promise<void> {
     await super.enter(ctx);
     this.isBorn = false;
-    this.isCounting = true;
 
     if (!this.birthData) {
       await this.load();
@@ -101,32 +98,20 @@ export class BirthScene extends BaseScene {
     this.ariaLiveEl.setAttribute('aria-atomic', 'true');
     this.overlayContainer.appendChild(this.ariaLiveEl);
 
-    // Station Title & Count Caption
-    const hudBox = document.createElement('div');
-    hudBox.className = 'birth-hud-box glass-panel';
+    // Interaction prompt — bottom-center anchor wrapper (initially hidden)
+    const promptWrapper = document.createElement('div');
+    promptWrapper.className = 'birth-prompt-btn-wrapper hidden';
 
-    const titleEl = document.createElement('h2');
-    titleEl.className = 'birth-title';
-    titleEl.textContent = t('birth.title');
-    hudBox.appendChild(titleEl);
-
-    this.captionEl = document.createElement('p');
-    this.captionEl.className = 'birth-caption-text';
-    this.captionEl.textContent = t('birth.count_caption', { count: formatNumber(0, getLanguage()) });
-    hudBox.appendChild(this.captionEl);
-
-    this.overlayContainer.appendChild(hudBox);
-
-    // Interaction prompt (initially hidden)
     this.promptEl = document.createElement('button');
-    this.promptEl.className = 'birth-prompt-btn primary-btn hidden';
+    this.promptEl.className = 'birth-prompt-btn primary-btn';
     this.promptEl.setAttribute('tabindex', '0');
-    this.promptEl.textContent = t('birth.tap_to_be_born');
+    this.updatePromptText();
     this.promptEl.addEventListener('click', (e) => {
       e.stopPropagation();
       this.triggerBirth();
     });
-    this.overlayContainer.appendChild(this.promptEl);
+    promptWrapper.appendChild(this.promptEl);
+    this.overlayContainer.appendChild(promptWrapper);
 
     // Person A's reserved slot for overlays tomorrow
     this.overlaySlotEl = document.createElement('div');
@@ -141,28 +126,19 @@ export class BirthScene extends BaseScene {
 
     const totalCount = this.birthCloud.getPointCount();
     const countState = { val: 0 };
-    const locale = getLanguage();
 
     this.countTween = gsap.to(countState, {
       val: totalCount,
-      duration: 3.0,
+      duration: 0.6,
       ease: 'power2.out',
       onUpdate: () => {
         const currentCount = Math.floor(countState.val);
-        const formatted = formatNumber(currentCount, locale);
-        if (this.captionEl) {
-          this.captionEl.textContent = t('birth.count_caption', { count: formatted });
-        }
         if (this.birthCloud) {
           this.birthCloud.setRevealProgress(currentCount / totalCount);
         }
       },
       onComplete: () => {
-        this.isCounting = false;
-        const finalFormatted = formatNumber(totalCount, locale);
-        if (this.captionEl) {
-          this.captionEl.textContent = t('birth.count_caption', { count: finalFormatted });
-        }
+        const finalFormatted = formatNumber(totalCount, 'en');
 
         // Accessibility announcement
         const youInfo = this.birthCloud!.getYouInfo();
@@ -189,12 +165,13 @@ export class BirthScene extends BaseScene {
 
   private showPrompt(): void {
     if (!this.promptEl) return;
-    this.promptEl.classList.remove('hidden');
+    const wrapper = this.promptEl.parentElement;
+    if (wrapper) wrapper.classList.remove('hidden');
     this.promptEl.focus();
 
-    // Setup input listeners (tap, click, Space, Enter)
+    // Setup input listeners (tap, click, Space, Enter, W, Up)
     this.keyListener = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'Enter') {
+      if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyW' || e.code === 'ArrowUp') {
         e.preventDefault();
         this.triggerBirth();
       }
@@ -232,7 +209,8 @@ export class BirthScene extends BaseScene {
       this.clickListener = null;
     }
     if (this.promptEl) {
-      this.promptEl.remove();
+      const wrapper = this.promptEl.parentElement;
+      if (wrapper) wrapper.remove();
       this.promptEl = null;
     }
 
@@ -280,8 +258,8 @@ export class BirthScene extends BaseScene {
         ly: youPos.y,
         lz: youPos.z,
         haloScale: 3.5,
-        duration: 3.2,
-        ease: 'power3.inOut',
+        duration: 1.1,
+        ease: 'power2.inOut',
         onUpdate: () => {
           cam.position.set(diveObj.cx, diveObj.cy, diveObj.cz);
           this.currentLookAt.set(diveObj.lx, diveObj.ly, diveObj.lz);
@@ -301,7 +279,7 @@ export class BirthScene extends BaseScene {
     // Fade into the baby character on the rail
     if (this.ctx) {
       const stationT = this.ctx.cameraRail.getStationT('birth');
-      this.ctx.cameraRail.animateTo(stationT, 1.8, 'power2.inOut');
+      this.ctx.cameraRail.animateTo(stationT, 1.0, 'power2.inOut');
     }
 
     // Mount Person A's BirthOverlays into overlaySlotEl
@@ -341,17 +319,19 @@ export class BirthScene extends BaseScene {
     }
   }
 
+  private updatePromptText(): void {
+    if (!this.promptEl) return;
+    const rawPrompt = t('birth.tap_to_be_born');
+    const [mainText, subText] = rawPrompt.split('\n');
+    if (subText) {
+      this.promptEl.innerHTML = `<span class="prompt-main-text">${mainText}</span><span class="prompt-sub-text">${subText}</span>`;
+    } else {
+      this.promptEl.textContent = rawPrompt;
+    }
+  }
+
   onLanguageChange(): void {
-    const locale = getLanguage();
-    if (this.captionEl && this.birthCloud) {
-      const count = this.isCounting ? 0 : this.birthCloud.getPointCount();
-      this.captionEl.textContent = t('birth.count_caption', {
-        count: formatNumber(count, locale),
-      });
-    }
-    if (this.promptEl) {
-      this.promptEl.textContent = t('birth.tap_to_be_born');
-    }
+    this.updatePromptText();
     if (this.birthOverlays) {
       this.birthOverlays.updateLanguage();
     }

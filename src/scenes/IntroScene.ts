@@ -58,7 +58,7 @@ export class IntroScene extends BaseScene {
             if (ctx.uiContainer) {
               ctx.uiContainer.innerHTML = '';
             }
-            window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'birth' } }));
+            ctx.goToScene('birth');
           });
         },
         onLanguageChange: async (lang) => {

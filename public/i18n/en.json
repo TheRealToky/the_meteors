@@ -40,7 +40,7 @@
   "birth.completeness": "Birth registration completeness in Rwanda reached 92.9% in 2025.",
   "birth.caption": "In 2025, exactly 356,838 live births were registered across Rwanda (180,795 boys and 176,043 girls).",
   "birth.count_caption": "Registered live births in 2025: {count}",
-  "birth.tap_to_be_born": "Tap anywhere or press Space to be born",
+  "birth.tap_to_be_born": "Press here to start the journey\n(Check the left corner for instructions)",
   "birth.you_marker": "You are baby #{index} ({sex})",
   "birth.aria_announcement": "In 2025, {count} births were registered in Rwanda. You are newborn #{index} ({sex}).",
   "birth.grow_up_btn": "Grow Up (Youth Station) →",

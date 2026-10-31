@@ -221,6 +221,12 @@ async function bootstrap() {
         // Modal scene active: hide arrow and pause walking
         waypointArrow.hide();
         playerController.lock();
+        const milestone = getMilestoneById(sceneId);
+        if (milestone) {
+          playerController.setActiveMilestone(milestone);
+          questHud.setMilestone(milestone);
+          questHud.show();
+        }
       }
     },
   });

@@ -40,7 +40,7 @@
   "birth.completeness": "Iyandikwa ry'amavuko mu Rwanda ryageze kuri 92.9% muri 2025.",
   "birth.caption": "Muri 2025, impinja 356,838 zanditswe mu bitabo by'irangamimerere mu Rwanda (abahungu 180,795 n'abakobwa 176,043).",
   "birth.count_caption": "Impinja zanditswe zivutse muri 2025: {count}",
-  "birth.tap_to_be_born": "Kanda aho ari ho hose cyangwa kanda Umwanya (Space) kugira ngo uvuke",
+  "birth.tap_to_be_born": "Kanda hano utangire urugendo\n(Reba mu nguni y'ibumoso amabwiriza)",
   "birth.you_marker": "Uri uruhinja rwa #{index} ({sex})",
   "birth.aria_announcement": "Muri 2025, impinja {count} zanditswe mu Rwanda. Uri uruhinja rwa #{index} ({sex}).",
   "birth.grow_up_btn": "Komeza Urugendo (Ubuto) →",
