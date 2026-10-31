@@ -85,8 +85,8 @@ export class DeathScene extends BaseScene {
       await this.load();
     }
 
-    // 1. Move camera rail to Death station (t = 0.84 on rail)
-    ctx.cameraRail.setProgress(0.84);
+    // 1. Move camera rail to Death station
+    ctx.cameraRail.setProgress(ctx.cameraRail.getStationT('death'));
 
     // 2. Setup 3D Station Props
     this.create3DProps();

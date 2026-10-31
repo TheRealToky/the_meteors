@@ -13,32 +13,40 @@ export interface StationAnchor {
  * 0: Intro, 1: Birth, 2: Growing, 3: Marriage, 4: Divorce, 5: Death, 6: Outro.
  */
 export const STATION_COORDINATES: Array<{ id: string; t: number; x: number; z: number }> = [
-  { id: 'intro',    t: 0.00, x: -70, z: -60 },
-  { id: 'birth',    t: 0.16, x: -45, z: -25 },
-  { id: 'growing',  t: 0.33, x: -15, z:   5 },
-  { id: 'marriage', t: 0.50, x:  15, z: -10 },
-  { id: 'divorce',  t: 0.67, x:  40, z:  20 },
-  { id: 'death',    t: 0.84, x:  60, z: -30 },
-  { id: 'outro',    t: 1.00, x:  75, z:  35 },
+  { id: 'intro',    t: 0.024, x: -72.0, z: -53.0 },
+  { id: 'birth',    t: 0.192, x: -36.0, z: -23.5 }, // Right in front of Clinic entrance
+  { id: 'growing',  t: 0.299, x: -22.0, z:   2.5 }, // Right in front of School of Life
+  { id: 'marriage', t: 0.455, x:  20.0, z:  -1.5 }, // Right in front of Town Hall
+  { id: 'divorce',  t: 0.551, x:  32.0, z:  22.0 }, // Right in front of Courtroom
+  { id: 'death',    t: 0.785, x:  68.0, z: -29.5 }, // Right in front of Sunset Sanctuary
+  { id: 'outro',    t: 1.000, x:  75.0, z:  29.0 },
 ];
 
 export function createPathCurve(getHeight: (x: number, z: number) => number): THREE.CatmullRomCurve3 {
-  // Additional intermediate control points to make the path naturally wind through terraces
+  // Roadway spline that leads cleanly to the front doorstep of every milestone house
   const rawWaypoints: Array<[number, number]> = [
-    [-75, -65],
-    [-70, -60], // Intro
-    [-58, -42],
-    [-45, -25], // Birth
-    [-30, -10],
-    [-15,   5], // Growing
-    [  0,  -5],
-    [ 15, -10], // Marriage
-    [ 28,   5],
-    [ 40,  20], // Divorce
-    [ 50,  -5],
-    [ 60, -30], // Death
-    [ 68,   5],
-    [ 75,  35], // Outro
+    [-76, -58],
+    [-72, -53], // 0. Intro station
+    [-55, -40],
+    [-44, -32],
+    [-36, -23.5], // 1. Birth station (District Maternity Health Clinic)
+    [-30, -14],
+    [-25, -6],
+    [-22, 2.5], // 2. Youth station (The School of Life)
+    [-12, 3],
+    [2, 0],
+    [12, -2],
+    [20, -1.5], // 3. Marriage station (Town Hall / Umurenge Civil Registry)
+    [24, 6],
+    [28, 14],
+    [32, 22.0], // 4. Divorce station (Community Justice Courtroom)
+    [42, 16],
+    [52, 2],
+    [60, -16],
+    [68, -29.5], // 5. Death station (Sunset Sanctuary & Memory Pavilion)
+    [72, -10],
+    [75, 12],
+    [75, 29.0], // 6. Outro station (Panorama Ridge)
   ];
 
   const points = rawWaypoints.map(([x, z]) => {
@@ -57,7 +65,7 @@ export function createPathMesh(
 ): { mesh: THREE.Mesh; dispose: () => void } {
   // Generate an organic 5-strip crowned roadway along the curve
   // (Left Outer, Left Inner, Center, Right Inner, Right Outer)
-  // Outer edges melt seamlessly into terrace grass; center is warm sunlit stone/sand
+  // Outer edges melt naturally into terrace grass; center is warm sunlit stone/sand
   const geom = new THREE.BufferGeometry();
   const ringCount = segments + 1;
   const vertsPerRing = 5;

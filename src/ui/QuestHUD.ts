@@ -13,10 +13,12 @@ export class QuestHUD {
   private titleEl: HTMLElement;
   private guideTextEl: HTMLElement;
   private distanceEl: HTMLElement;
+  private toggleBtnEl: HTMLElement;
 
   private currentMilestone: Milestone | null = null;
   private unregisterI18n: (() => void) | null = null;
   private lastDistance: number = -1;
+  private isCollapsed: boolean = false;
 
   constructor(options: QuestHUDOptions) {
     this.container = options.container;
@@ -30,29 +32,44 @@ export class QuestHUD {
 
     this.rootEl.innerHTML = `
       <div class="quest-hud-top">
-        <span class="quest-badge" id="quest-level-badge">Stage 1 of 5</span>
-        <span class="quest-distance" id="quest-distance-badge">
-          <svg class="quest-compass-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+        <div class="quest-hud-pill-group">
+          <span class="quest-badge" id="quest-level-badge">Stage 1 of 5</span>
+          <span class="quest-distance" id="quest-distance-badge">
+            <svg class="quest-compass-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>
+            <span id="quest-distance-text">Finding path...</span>
+          </span>
+        </div>
+
+        <button id="quest-collapse-btn" class="quest-toggle-btn" aria-expanded="true" aria-controls="quest-body" title="Collapse quest card">
+          <span class="sr-only">Toggle objective card</span>
+          <svg class="toggle-icon-minus" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span id="quest-distance-text">Looking for path...</span>
-        </span>
+          <svg class="toggle-icon-plus" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
       </div>
 
-      <h3 class="quest-title" id="quest-title-text">District Maternity Health Center</h3>
-      <p class="quest-guide-text" id="quest-guide-text">
-        Guide your parents to the Health Center to register your birth among 356,838 newborns.
-      </p>
+      <div id="quest-body" class="quest-body">
+        <h3 class="quest-title" id="quest-title-text">District Maternity Health Center</h3>
+        <p class="quest-guide-text" id="quest-guide-text">
+          Guide your parents to the Health Center to register your birth among 356,838 newborns.
+        </p>
 
-      <div class="quest-controls-row">
-        <div class="quest-key-badge">
-          <kbd class="key-cap">W</kbd> / <kbd class="key-cap">↑</kbd>
-          <span class="key-label">Walk Forward</span>
-        </div>
-        <div class="quest-key-badge">
-          <kbd class="key-cap">S</kbd> / <kbd class="key-cap">↓</kbd>
-          <span class="key-label">Step Back</span>
+        <div class="quest-controls-row">
+          <div class="quest-key-badge">
+            <kbd class="key-cap">W</kbd> / <kbd class="key-cap">↑</kbd>
+            <span class="key-label">Walk</span>
+          </div>
+          <div class="quest-key-badge">
+            <kbd class="key-cap">S</kbd> / <kbd class="key-cap">↓</kbd>
+            <span class="key-label">Back</span>
+          </div>
         </div>
       </div>
     `;
@@ -63,6 +80,23 @@ export class QuestHUD {
     this.titleEl = this.rootEl.querySelector('#quest-title-text') as HTMLElement;
     this.guideTextEl = this.rootEl.querySelector('#quest-guide-text') as HTMLElement;
     this.distanceEl = this.rootEl.querySelector('#quest-distance-text') as HTMLElement;
+    this.toggleBtnEl = this.rootEl.querySelector('#quest-collapse-btn') as HTMLElement;
+
+    // Wire collapse toggle
+    this.toggleBtnEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleCollapse();
+    });
+
+    // Clicking top pill area when collapsed expands it
+    const topArea = this.rootEl.querySelector('.quest-hud-top') as HTMLElement;
+    if (topArea) {
+      topArea.addEventListener('click', (e) => {
+        if (this.isCollapsed && e.target !== this.toggleBtnEl) {
+          this.toggleCollapse();
+        }
+      });
+    }
 
     if (options.initialMilestone) {
       this.setMilestone(options.initialMilestone);
@@ -73,6 +107,19 @@ export class QuestHUD {
         this.renderMilestone(this.currentMilestone);
       }
     });
+  }
+
+  public toggleCollapse(): void {
+    this.isCollapsed = !this.isCollapsed;
+    if (this.isCollapsed) {
+      this.rootEl.classList.add('collapsed');
+      this.toggleBtnEl.setAttribute('aria-expanded', 'false');
+      this.toggleBtnEl.setAttribute('title', 'Expand quest card');
+    } else {
+      this.rootEl.classList.remove('collapsed');
+      this.toggleBtnEl.setAttribute('aria-expanded', 'true');
+      this.toggleBtnEl.setAttribute('title', 'Collapse quest card');
+    }
   }
 
   public setMilestone(milestone: Milestone | null): void {
@@ -108,7 +155,7 @@ export class QuestHUD {
 
     if (this.distanceEl) {
       if (rounded <= 4) {
-        this.distanceEl.innerHTML = `<span class="arrived-pulse">Arrived at Milestone!</span>`;
+        this.distanceEl.innerHTML = `<span class="arrived-pulse">Arrived!</span>`;
       } else {
         this.distanceEl.textContent = `${rounded}m ahead`;
       }

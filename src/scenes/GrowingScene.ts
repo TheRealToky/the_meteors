@@ -38,8 +38,8 @@ export class GrowingScene extends BaseScene {
     // 1. Build Overlay Card
     this.createDomOverlay(ctx.uiContainer);
 
-    // 2. Position camera rail at School of Life station (t = 0.33)
-    const targetT = 0.33;
+    // 2. Position camera rail at School of Life station
+    const targetT = ctx.cameraRail.getStationT('growing');
     ctx.cameraRail.setProgress(targetT);
 
     // Wire Keyboard Listener (Enter or Space to continue)
@@ -86,9 +86,9 @@ export class GrowingScene extends BaseScene {
         <p class="growing-caption">${t('growing.caption')}</p>
       </div>
 
-      <div class="growing-actions" style="margin-top: 1.25rem; display: flex; justify-content: flex-end;">
-        <button id="btn-continue-marriage" class="primary-btn" tabindex="0">
-          Continue to Town Hall (Marriage) →
+      <div class="growing-actions">
+        <button id="btn-continue-marriage" class="primary-btn stage-action-btn" tabindex="0">
+          Continue to Town Hall (Marriage)
         </button>
       </div>
     `;

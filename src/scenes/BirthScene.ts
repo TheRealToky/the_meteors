@@ -300,8 +300,8 @@ export class BirthScene extends BaseScene {
   private finishBorn(youInfo: { index: number; sex: 'male' | 'female' }): void {
     // Fade into the baby character on the rail
     if (this.ctx) {
-      // Position camera rail smoothly to birth station (t = 0.16)
-      this.ctx.cameraRail.animateTo(0.16, 1.8, 'power2.inOut');
+      const stationT = this.ctx.cameraRail.getStationT('birth');
+      this.ctx.cameraRail.animateTo(stationT, 1.8, 'power2.inOut');
     }
 
     // Mount Person A's BirthOverlays into overlaySlotEl

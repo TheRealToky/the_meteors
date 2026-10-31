@@ -71,8 +71,8 @@ export class MarriageScene extends BaseScene {
       await this.load();
     }
 
-    // 1. Position camera at Marriage station (t = 0.50 on rail)
-    ctx.cameraRail.setProgress(0.50);
+    // 1. Position camera at Marriage station
+    ctx.cameraRail.setProgress(ctx.cameraRail.getStationT('marriage'));
 
     // 2. Setup 3D Ceremonial Wedding Rings
     this.create3DProps();

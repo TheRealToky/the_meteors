@@ -72,8 +72,8 @@ export class DivorceScene extends BaseScene {
       await this.load();
     }
 
-    // 1. Move camera rail to Divorce Station (t = 0.67 on rail)
-    ctx.cameraRail.setProgress(0.67);
+    // 1. Move camera rail to Divorce Station
+    ctx.cameraRail.setProgress(ctx.cameraRail.getStationT('divorce'));
 
     // 2. Setup 3D Station Props
     this.create3DProps();

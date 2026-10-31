@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { STATION_COORDINATES } from './path';
 
 export interface StationsManager {
   group: THREE.Group;
@@ -305,50 +304,40 @@ export function createStationsManager(
 
   // Place architectural landmarks at key stations
   const pavilions: Record<string, THREE.Group> = {};
-  STATION_COORDINATES.forEach((coord) => {
-    if (coord.id === 'intro') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x - 7.0, coord.z + 5.0, 1.25);
-      group.add(pavilions[coord.id]);
-    } else if (coord.id === 'birth') {
-      // 1. District Maternity Health Center (Hospital)
-      const clinicPavilion = buildRwandanPavilion(coord.x + 8.5, coord.z - 3.5, 1.15);
+
+  // Canonical House Centers
+  const HOUSE_POSITIONS: Record<string, { x: number; z: number; scale: number }> = {
+    intro:    { x: -72.0, z: -56.0, scale: 1.25 },
+    birth:    { x: -36.0, z: -28.0, scale: 1.15 }, // District Maternity Health Center
+    growing:  { x: -22.0, z:  -2.0, scale: 1.25 }, // The School of Life
+    marriage: { x:  20.0, z:  -5.0, scale: 1.35 }, // Town Hall (Umurenge Civil Registry)
+    divorce:  { x:  32.0, z:  26.0, scale: 1.20 }, // Community Justice Courtroom
+    death:    { x:  68.0, z: -34.0, scale: 1.30 }, // Sunset Sanctuary & Memory Pavilion
+    outro:    { x:  75.0, z:  32.0, scale: 1.40 }, // Panorama Ridge
+  };
+
+  Object.entries(HOUSE_POSITIONS).forEach(([id, cfg]) => {
+    const pavilion = buildRwandanPavilion(cfg.x, cfg.z, cfg.scale);
+    pavilions[id] = pavilion;
+    group.add(pavilion);
+
+    if (id === 'birth') {
       const cross = buildMedicalCross(0.9);
       cross.position.set(0, 3.8, 2.8);
-      clinicPavilion.add(cross);
-      pavilions[coord.id] = clinicPavilion;
-      group.add(clinicPavilion);
-      group.add(buildStoneCairn(coord.x - 3.5, coord.z + 4.0, 1.0));
-    } else if (coord.id === 'growing') {
-      // 2. The School of Life (Inclusive education & communal wisdom)
-      const schoolPavilion = buildRwandanPavilion(coord.x - 9.0, coord.z - 6.0, 1.25);
-      pavilions[coord.id] = schoolPavilion;
-      group.add(schoolPavilion);
-      group.add(buildStoneCairn(coord.x + 4.5, coord.z + 3.0, 0.9));
-    } else if (coord.id === 'marriage') {
-      // 3. Town Hall (Umurenge Civil Registry)
-      const townHallPavilion = buildRwandanPavilion(coord.x + 8.0, coord.z + 6.0, 1.35);
-      pavilions[coord.id] = townHallPavilion;
-      group.add(townHallPavilion);
-      group.add(buildStoneCairn(coord.x - 4.5, coord.z - 4.0, 1.1));
-    } else if (coord.id === 'divorce') {
-      // 4. Community Justice Courtroom
-      const courtPavilion = buildRwandanPavilion(coord.x - 8.5, coord.z + 7.0, 1.2);
+      pavilion.add(cross);
+      group.add(buildStoneCairn(cfg.x - 3.5, cfg.z - 2.0, 1.0));
+    } else if (id === 'growing') {
+      group.add(buildStoneCairn(cfg.x - 4.5, cfg.z - 1.5, 0.95));
+    } else if (id === 'marriage') {
+      group.add(buildStoneCairn(cfg.x - 4.5, cfg.z - 2.0, 1.1));
+    } else if (id === 'divorce') {
       const courtEmblem = buildCourtEmblem(0.9);
       courtEmblem.position.set(0, 3.6, 2.7);
-      courtPavilion.add(courtEmblem);
-      pavilions[coord.id] = courtPavilion;
-      group.add(courtPavilion);
-      group.add(buildStoneCairn(coord.x + 4.0, coord.z - 3.5, 1.0));
-    } else if (coord.id === 'death') {
-      // 5. Sunset Sanctuary & Memory Pavilion
-      const sanctuaryPavilion = buildRwandanPavilion(coord.x + 9.5, coord.z - 6.0, 1.3);
-      pavilions[coord.id] = sanctuaryPavilion;
-      group.add(sanctuaryPavilion);
-      group.add(buildStoneCairn(coord.x - 5.0, coord.z + 3.5, 1.2));
-      group.add(buildStoneCairn(coord.x - 7.0, coord.z - 2.0, 0.85));
-    } else if (coord.id === 'outro') {
-      pavilions[coord.id] = buildRwandanPavilion(coord.x + 7.5, coord.z + 5.0, 1.4);
-      group.add(pavilions[coord.id]);
+      pavilion.add(courtEmblem);
+      group.add(buildStoneCairn(cfg.x + 4.0, cfg.z + 2.5, 1.0));
+    } else if (id === 'death') {
+      group.add(buildStoneCairn(cfg.x - 4.5, cfg.z - 2.0, 1.2));
+      group.add(buildStoneCairn(cfg.x - 6.0, cfg.z + 1.5, 0.85));
     }
   });
 
@@ -407,17 +396,16 @@ export function createStationsManager(
       pavilion.add(clone);
     };
 
-    // 1. Birth Station (Rest bench, planters, and subtle distant clinic vehicle)
+    // 1. Birth Station (Maternity Clinic ambulance parked on arrival terrace, bench, and planters)
+    if (ambulanceModel) {
+      placeProp(ambulanceModel, -41.5, -24.5, 1.15, 0.4);
+    }
     if (benchModel) {
-      placeProp(benchModel, 31.0, -11.0, 1.8, 0.4);
+      placeProp(benchModel, -32.5, -25.5, 1.8, 0.2);
     }
     if (planterModel) {
-      placeProp(planterModel, 27.5, -9.5, 1.5, 0.2);
-      placeProp(planterModel, 32.5, -7.5, 1.5, -0.4);
-    }
-    // Community clinic vehicle parked in the distance along lower terrace
-    if (ambulanceModel) {
-      placeProp(ambulanceModel, 42.0, -22.0, 1.1, -1.2);
+      placeProp(planterModel, -33.5, -23.5, 1.5, 0.1);
+      placeProp(planterModel, -39.0, -23.5, 1.5, -0.3);
     }
 
     // 2. Growing Up / School of Life Station (Youth study desk, ledgers, rest bench, terrace planters)
@@ -434,10 +422,10 @@ export function createStationsManager(
       }
     }
     if (benchModel) {
-      placeProp(benchModel, 24.0, 26.0, 1.8, 2.2);
+      placeProp(benchModel, -18.0, 1.5, 1.8, 1.4);
     }
     if (planterModel) {
-      placeProp(planterModel, 19.5, 23.5, 1.5, 0.8);
+      placeProp(planterModel, -25.5, 1.5, 1.5, 0.5);
     }
 
     // 3. Marriage Station (Civil Registration signing desk, ledgers, chairs inside pavilion)
@@ -447,7 +435,6 @@ export function createStationsManager(
         placeInPavilion(marriagePavilion, deskModel, 0, 0, 1.7, 0);
       }
       if (booksModel) {
-        // Registry ledgers on the desk
         const books = booksModel.clone(true);
         books.position.set(0.15, 1.05, 0.05);
         books.scale.set(2.2, 2.2, 2.2);
@@ -457,31 +444,37 @@ export function createStationsManager(
         placeInPavilion(marriagePavilion, chairModel, -0.75, -0.6, 1.7, 0.3);
         placeInPavilion(marriagePavilion, chairModel, 0.75, -0.6, 1.7, -0.3);
       }
-      if (planterModel) {
-        placeProp(planterModel, -15.5, 29.5, 1.5, 1.1);
-        placeProp(planterModel, -10.5, 33.5, 1.5, -0.5);
-      }
     }
-
-    // 4. Divorce Station (Contemplative wooden rest bench overlooking the misty valley)
+    if (planterModel) {
+      placeProp(planterModel, 16.5, -1.0, 1.5, 0.2);
+      placeProp(planterModel, 23.5, -1.0, 1.5, -0.4);
+    }
     if (benchModel) {
-      placeProp(benchModel, -26.5, 2.0, 1.8, -1.3);
+      placeProp(benchModel, 24.5, -3.5, 1.8, -1.2);
     }
 
-    // 5. Death Station (Sacred ancestor tree & reflection bench)
+    // 4. Divorce Station (Contemplative wooden rest bench overlooking the valley)
+    if (benchModel) {
+      placeProp(benchModel, 28.0, 23.5, 1.8, 0.3);
+    }
+    if (planterModel) {
+      placeProp(planterModel, 35.5, 23.5, 1.5, -0.6);
+    }
+
+    // 5. Death Station (Sacred ancestor tree on the cliff edge & reflection bench)
     if (deadTreeModel) {
-      placeProp(deadTreeModel, -3.5, -34.0, 0.32, 0.7);
+      placeProp(deadTreeModel, 72.5, -36.5, 0.32, 0.7);
     }
     if (benchModel) {
-      placeProp(benchModel, 5.0, -25.5, 1.8, 1.8);
+      placeProp(benchModel, 65.0, -31.5, 1.8, 0.6);
     }
 
     // 6. Intro & Outro Stations
     if (benchModel) {
-      placeProp(benchModel, -5.5, 4.5, 1.8, 0.2);
+      placeProp(benchModel, -69.0, -53.5, 1.8, 0.2);
     }
     if (planterModel) {
-      placeProp(planterModel, -8.0, 2.5, 1.5, 0.5);
+      placeProp(planterModel, -74.5, -53.5, 1.5, 0.5);
     }
   };
 
