@@ -684,41 +684,6 @@ export function createPropsManager(
       instancedMeshes.push(inst);
     }
 
-    // Rustic Overlook Fences (fence-low.glb)
-    const fenceMesh = await loadModelMesh('/models/props/fence-low.glb');
-    if (fenceMesh) {
-      const count = 35;
-      const geom = getSmoothGeom(fenceMesh);
-      const mat = getSmoothMaterial(fenceMesh, 0x6e4e30);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-
-      for (let i = 0; i < count * 4 && placed < count; i++) {
-        const angle = (i / count) * Math.PI * 2;
-        const radius = 32 + (i % 3) * 18;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        const y = getHeight(x, z);
-
-        if (y > 9.0 && isClearOfPathAndStations(x, z, 5.0)) {
-          dummy.position.set(x, y - 0.04, z);
-          dummy.rotation.y = angle + Math.PI / 2;
-          dummy.scale.set(1.4, 1.4, 1.4);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
-      }
-
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
     // =========================================================
     // 8. DYNAMIC BREEZE RIBBONS / WIND TRAILS (From Reference Image)
     // =========================================================

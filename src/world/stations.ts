@@ -372,7 +372,6 @@ export function createStationsManager(
     const booksModel = await loadModel('/models/props/books.glb');
     const chairModel = await loadModel('/models/props/chairRounded.glb');
     const planterModel = await loadModel('/models/props/planter.glb');
-    const ambulanceModel = await loadModel('/models/props/ambulance.glb');
     const deadTreeModel = await loadModel('/models/nature/DeadTree_1.gltf');
 
     // Helper to position a model at (x, z) grounded on terrain
@@ -396,10 +395,7 @@ export function createStationsManager(
       pavilion.add(clone);
     };
 
-    // 1. Birth Station (Maternity Clinic ambulance parked on arrival terrace, bench, and planters)
-    if (ambulanceModel) {
-      placeProp(ambulanceModel, -41.5, -24.5, 1.15, 0.4);
-    }
+    // 1. Birth Station (Maternity Clinic bench and planters)
     if (benchModel) {
       placeProp(benchModel, -32.5, -25.5, 1.8, 0.2);
     }
