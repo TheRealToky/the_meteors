@@ -14,6 +14,7 @@ export class QuestHUD {
   private guideTextEl: HTMLElement;
   private distanceEl: HTMLElement;
   private toggleBtnEl: HTMLElement;
+  private toggleLabelEl: HTMLElement;
 
   private currentMilestone: Milestone | null = null;
   private unregisterI18n: (() => void) | null = null;
@@ -43,14 +44,10 @@ export class QuestHUD {
           </span>
         </div>
 
-        <button id="quest-collapse-btn" class="quest-toggle-btn" aria-expanded="true" aria-controls="quest-body" title="Collapse quest card">
-          <span class="sr-only">Toggle objective card</span>
-          <svg class="toggle-icon-minus" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <svg class="toggle-icon-plus" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
+        <button id="quest-collapse-btn" class="quest-toggle-btn" aria-expanded="true" aria-controls="quest-body" title="Collapse objective card">
+          <span class="quest-toggle-label" id="quest-toggle-label">Hide</span>
+          <svg class="quest-chevron-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="18 15 12 9 6 15"></polyline>
           </svg>
         </button>
       </div>
@@ -81,6 +78,7 @@ export class QuestHUD {
     this.guideTextEl = this.rootEl.querySelector('#quest-guide-text') as HTMLElement;
     this.distanceEl = this.rootEl.querySelector('#quest-distance-text') as HTMLElement;
     this.toggleBtnEl = this.rootEl.querySelector('#quest-collapse-btn') as HTMLElement;
+    this.toggleLabelEl = this.rootEl.querySelector('#quest-toggle-label') as HTMLElement;
 
     // Wire collapse toggle
     this.toggleBtnEl.addEventListener('click', (e) => {
@@ -106,7 +104,14 @@ export class QuestHUD {
       if (this.currentMilestone) {
         this.renderMilestone(this.currentMilestone);
       }
+      this.updateToggleLabel();
     });
+  }
+
+  private updateToggleLabel(): void {
+    if (this.toggleLabelEl) {
+      this.toggleLabelEl.textContent = this.isCollapsed ? 'Details' : 'Hide';
+    }
   }
 
   public toggleCollapse(): void {
@@ -114,12 +119,13 @@ export class QuestHUD {
     if (this.isCollapsed) {
       this.rootEl.classList.add('collapsed');
       this.toggleBtnEl.setAttribute('aria-expanded', 'false');
-      this.toggleBtnEl.setAttribute('title', 'Expand quest card');
+      this.toggleBtnEl.setAttribute('title', 'Expand objective details');
     } else {
       this.rootEl.classList.remove('collapsed');
       this.toggleBtnEl.setAttribute('aria-expanded', 'true');
-      this.toggleBtnEl.setAttribute('title', 'Collapse quest card');
+      this.toggleBtnEl.setAttribute('title', 'Collapse objective card');
     }
+    this.updateToggleLabel();
   }
 
   public setMilestone(milestone: Milestone | null): void {
