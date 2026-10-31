@@ -439,15 +439,10 @@ html, body {
   font-weight: 700;
 }
 
-/* School of Life (Growing Stage) Overlay & Card */
-.growing-overlay-wrapper {
-  width: 100%;
-  max-width: 580px;
-  margin: 0 auto;
-  pointer-events: auto;
-}
-
+/* School of Life (Growing Stage) Card */
 .growing-card {
+  width: 580px;
+  max-width: calc(100vw - 4rem);
   padding: 1.5rem 1.8rem;
   display: flex;
   flex-direction: column;

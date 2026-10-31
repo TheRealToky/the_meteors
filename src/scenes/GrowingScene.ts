@@ -10,7 +10,6 @@ export class GrowingScene extends BaseScene {
   private group: THREE.Group = new THREE.Group();
 
   // Overlay DOM
-  private overlayContainer: HTMLElement | null = null;
   private cardEl: HTMLElement | null = null;
   private titleEl: HTMLElement | null = null;
   private captionEl: HTMLElement | null = null;
@@ -60,9 +59,6 @@ export class GrowingScene extends BaseScene {
   }
 
   private createDomOverlay(container: HTMLElement): void {
-    this.overlayContainer = document.createElement('div');
-    this.overlayContainer.className = 'growing-overlay-wrapper';
-
     this.cardEl = document.createElement('div');
     this.cardEl.className = 'growing-card glass-panel';
     this.cardEl.setAttribute('role', 'region');
@@ -75,8 +71,6 @@ export class GrowingScene extends BaseScene {
 
       <h2 class="growing-title">The School of Life</h2>
       <p class="growing-subtitle">Growing up across the terraced hills — inclusive learning through formal education, crafts, and community life.</p>
-      
-
 
       <div class="growing-caption-box">
         <p class="growing-caption">${t('growing.caption')}</p>
@@ -100,8 +94,7 @@ export class GrowingScene extends BaseScene {
     this.titleEl = this.cardEl.querySelector('.growing-title');
     this.captionEl = this.cardEl.querySelector('.growing-caption');
 
-    this.overlayContainer.appendChild(this.cardEl);
-    container.appendChild(this.overlayContainer);
+    container.appendChild(this.cardEl);
   }
 
   private updateLabels(): void {
@@ -143,9 +136,9 @@ export class GrowingScene extends BaseScene {
       this.unregisterI18n = null;
     }
 
-    if (this.overlayContainer) {
-      this.overlayContainer.remove();
-      this.overlayContainer = null;
+    if (this.cardEl) {
+      this.cardEl.remove();
+      this.cardEl = null;
     }
     if (this.ctx) {
       this.ctx.scene.remove(this.group);
