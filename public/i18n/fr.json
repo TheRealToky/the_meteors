@@ -154,5 +154,14 @@
   "outro.methodology_divorce_title": "Le divorce n'est pas un taux de mariage",
   "outro.methodology_divorce_desc": "Comparer 4 479 divorces enregistrés à 50 256 mariages en 2025 ne constitue pas un taux d'échec : 41,3 % des divorces ont été prononcés avant 2025 et seulement enregistrés en 2025.",
   "outro.methodology_causes_title": "Double déclaration des causes de décès",
-  "outro.methodology_causes_desc": "Les décès en établissement (44,1 %) et en communauté (55,9 %) présentent des répartitions de causes nettement différentes. Ils sont présentés côte à côte pour respecter la fidélité des données."
+  "outro.methodology_causes_desc": "Les décès en établissement (44,1 %) et en communauté (55,9 %) présentent des répartitions de causes nettement différentes. Ils sont présentés côte à côte pour respecter la fidélité des données.",
+  "audio.toggle_mute": "Activer/Couper le son (M)",
+  "audio.title": "Ambiance sonore",
+  "audio.now_playing": "Piste : {title}",
+  "audio.default_track": "Lo-Fi calme (libre de droits)",
+  "audio.custom_track": "Piste personnalisée",
+  "audio.upload_btn": "Importer un morceau NCS / fichier 🎵",
+  "audio.volume_label": "Volume : {percent}%",
+  "audio.playing": "En lecture",
+  "audio.muted": "Muet"
 }

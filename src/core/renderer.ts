@@ -27,14 +27,16 @@ export function createRenderer(options: RendererOptions = {}): {
     alpha: false,
   });
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || navigator.maxTouchPoints > 1);
+  const maxDpr = isMobile ? 1.5 : 2;
+  const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
   renderer.setPixelRatio(dpr);
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = isMobile ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xd7ecf8); // Soft Rwandan highland sky

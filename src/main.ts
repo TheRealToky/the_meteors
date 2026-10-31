@@ -15,6 +15,7 @@ import { LanguagePicker } from './ui/LanguagePicker';
 import { createSkySystem } from './world/sky';
 import { createStationsManager } from './world/stations';
 import { CharacterRig } from './world/CharacterRig';
+import { AudioManager } from './audio/AudioManager';
 
 // Station ages for the life path
 const SCENE_AGES: Record<SceneId, number> = {
@@ -62,6 +63,13 @@ async function bootstrap() {
       updateStaticUI(director.getCurrentSceneId());
     },
   });
+
+  // 3b. Initialize Ambient Audio & Widget
+  const audioManager = AudioManager.getInstance();
+  const hudRightGroup = document.querySelector('.hud-right-group') as HTMLElement;
+  if (hudRightGroup) {
+    audioManager.mountWidget(hudRightGroup);
+  }
 
   // 4. Initialize Core Three.js Renderer, Scene, Camera
   const { renderer, scene, camera } = createRenderer({ canvas });

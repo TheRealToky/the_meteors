@@ -154,5 +154,14 @@
   "outro.methodology_divorce_title": "Ubutane Si Igipimo Cy'Ishyingirwa",
   "outro.methodology_divorce_desc": "Kugereranya ubutane bwanditswe 4,479 n'ishyingirwa 50,256 muri 2025 si igipimo cy'ubutane. 41.3% by'ubutane bwanditswe bwari bwaremejwe mbere ya 2025 ariko bwandikwa muri 2025.",
   "outro.methodology_causes_title": "Raporo Ebyiri Z'Imvano Z'Impfu",
-  "outro.methodology_causes_desc": "Impfu zo mu bigo by'ubuvuzi (44.1%) n'izo mu miryango (55.9%) zifite impamvu zitandukanye cyane. Zigaragazwa zombi kugira ngo ukuri kw'imibare kudasibangana."
+  "outro.methodology_causes_desc": "Impfu zo mu bigo by'ubuvuzi (44.1%) n'izo mu miryango (55.9%) zifite impamvu zitandukanye cyane. Zigaragazwa zombi kugira ngo ukuri kw'imibare kudasibangana.",
+  "audio.toggle_mute": "Guhagarika/Gucana amajwi (M)",
+  "audio.title": "Amajwi y'Inyuma",
+  "audio.now_playing": "Indirimbo: {title}",
+  "audio.default_track": "Umuziki Utuje wa Lo-Fi",
+  "audio.custom_track": "Umuziki Wihariye",
+  "audio.upload_btn": "Shyiraho Indirimbo ya NCS / Dosiye 🎵",
+  "audio.volume_label": "Ubwiyongere: {percent}%",
+  "audio.playing": "Irimo Gucuranga",
+  "audio.muted": "Yacecetse"
 }

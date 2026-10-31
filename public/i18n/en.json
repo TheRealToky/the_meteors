@@ -154,5 +154,14 @@
   "outro.methodology_divorce_title": "Divorce Is Not a Marriage Rate",
   "outro.methodology_divorce_desc": "Comparing 4,479 registered divorces against 50,256 marriages in 2025 is not a divorce rate. 41.3% of registered divorces were legally granted prior to 2025 and only registered in 2025.",
   "outro.methodology_causes_title": "Dual Cause-of-Death Reporting",
-  "outro.methodology_causes_desc": "Facility deaths (44.1%) and community deaths (55.9%) display markedly different cause distributions. They are presented side-by-side to maintain data fidelity."
+  "outro.methodology_causes_desc": "Facility deaths (44.1%) and community deaths (55.9%) display markedly different cause distributions. They are presented side-by-side to maintain data fidelity.",
+  "audio.toggle_mute": "Toggle ambient sound (M)",
+  "audio.title": "Background Audio",
+  "audio.now_playing": "Track: {title}",
+  "audio.default_track": "Calm Lo-Fi (Royalty Free)",
+  "audio.custom_track": "Custom Audio",
+  "audio.upload_btn": "Upload NCS Song / Custom Track 🎵",
+  "audio.volume_label": "Volume: {percent}%",
+  "audio.playing": "Playing",
+  "audio.muted": "Muted"
 }

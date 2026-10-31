@@ -17,7 +17,9 @@ export function setupResize(
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const isMobile = width < 768 || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1);
+    const maxDpr = isMobile ? 1.5 : 2;
+    const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
     renderer.setPixelRatio(dpr);
     renderer.setSize(width, height);
 

@@ -97,6 +97,11 @@ export class BirthOverlays {
     this.root.setAttribute('role', 'region');
     this.root.setAttribute('aria-label', t('birth.title'));
 
+    const fertilityRate = ind.fertility_rate ?? 3.5;
+    const sexRatio = ind.sex_ratio_at_birth ?? 102.7;
+    const malePct = (sexRatio / (sexRatio + 100) * 100).toFixed(1);
+    const femalePct = (100 - parseFloat(malePct)).toFixed(1);
+
     this.root.innerHTML = `
       <div class="birth-milestone-header">
         <div class="birth-status-badge">
@@ -118,11 +123,11 @@ export class BirthOverlays {
         <div class="birth-metric-card">
           <div class="metric-card-top">
             <span class="metric-tag">${t('birth.fertility_badge')}</span>
-            <span class="metric-highlight">3.5</span>
+            <span class="metric-highlight">${formatNumber(fertilityRate, lang)}</span>
           </div>
           <p class="metric-statement">${t('birth.tfr_statement')}</p>
           
-          <div class="fertility-icons-row" aria-label="3.5 children per woman represented as 3 full baby icons and 1 half-filled icon">
+          <div class="fertility-icons-row" aria-label="${t('birth.tfr_statement')}">
             <div class="baby-icon-wrapper full" title="1">
               ${this.getBabySvg(1)}
             </div>
@@ -133,7 +138,7 @@ export class BirthOverlays {
               ${this.getBabySvg(1)}
             </div>
             <div class="baby-icon-wrapper half" title="0.5">
-              ${this.getBabySvg(0.5)}
+              ${this.getBabySvg(fertilityRate - Math.floor(fertilityRate) > 0 ? (fertilityRate - Math.floor(fertilityRate)) : 1)}
             </div>
           </div>
         </div>
@@ -142,17 +147,17 @@ export class BirthOverlays {
         <div class="birth-metric-card">
           <div class="metric-card-top">
             <span class="metric-tag">${t('birth.sex_ratio_badge')}</span>
-            <span class="metric-highlight">102.7 : 100</span>
+            <span class="metric-highlight">${formatNumber(sexRatio, lang)} : 100</span>
           </div>
           <p class="metric-statement">${t('birth.sex_ratio')}</p>
           
           <div class="sex-ratio-bar-wrapper">
             <div class="sex-ratio-bar">
-              <div class="ratio-segment male-segment" style="width: 50.7%;" title="Boys: 50.7% (102.7 per 100)">
-                <span>${t('common.male')} 50.7%</span>
+              <div class="ratio-segment male-segment" style="width: ${malePct}%;" title="Boys: ${malePct}% (${sexRatio} per 100)">
+                <span>${t('common.male')} ${malePct}%</span>
               </div>
-              <div class="ratio-segment female-segment" style="width: 49.3%;" title="Girls: 49.3% (100 per 102.7)">
-                <span>${t('common.female')} 49.3%</span>
+              <div class="ratio-segment female-segment" style="width: ${femalePct}%;" title="Girls: ${femalePct}% (100 per ${sexRatio})">
+                <span>${t('common.female')} ${femalePct}%</span>
               </div>
             </div>
           </div>
