@@ -23,36 +23,37 @@ export interface SkyPalette {
 // Curated Sky: Children of the Light color palettes for each life station
 export const STATION_MOODS: Record<string, SkyPalette> = {
   intro: {
-    topColor: new THREE.Color(0x6a9fd8),
-    midColor: new THREE.Color(0xd2b8dc),
-    bottomColor: new THREE.Color(0xffdfb8),
-    fogColor: new THREE.Color(0xe6daf0),
+    // Clear highland morning: cyan sky, pale warm horizon (reference art direction)
+    topColor: new THREE.Color(0x3f9be0),
+    midColor: new THREE.Color(0x8fd0f0),
+    bottomColor: new THREE.Color(0xcdeaf2),
+    fogColor: new THREE.Color(0xd2eaf2),
     sunColor: new THREE.Color(0xfff3db),
-    sunIntensity: 1.35,
+    sunIntensity: 2.36,
     hemiSkyColor: new THREE.Color(0xe8f2fc),
     hemiGroundColor: new THREE.Color(0x6e8f5b),
     skyboxKey: 'morning',
   },
   birth: {
     // Dawn of life: hopeful blush, soft golden dew, ethereal warmth
-    topColor: new THREE.Color(0x73a6dc),
-    midColor: new THREE.Color(0xe0b8cc),
-    bottomColor: new THREE.Color(0xffe1bd),
-    fogColor: new THREE.Color(0xf2e0e5),
+    topColor: new THREE.Color(0x4aa0e0),
+    midColor: new THREE.Color(0x9fd4ee),
+    bottomColor: new THREE.Color(0xd9eef0),
+    fogColor: new THREE.Color(0xdcecee),
     sunColor: new THREE.Color(0xffedd4),
-    sunIntensity: 1.4,
+    sunIntensity: 2.45,
     hemiSkyColor: new THREE.Color(0xfcf2eb),
     hemiGroundColor: new THREE.Color(0x6a8c54),
     skyboxKey: 'morning',
   },
   growing: {
     // Vibrant youth: crystal blue highland sky, sunny emerald vitality
-    topColor: new THREE.Color(0x569ee2),
-    midColor: new THREE.Color(0xa7cbf3),
-    bottomColor: new THREE.Color(0xf8ebd6),
-    fogColor: new THREE.Color(0xdfeaf5),
+    topColor: new THREE.Color(0x3797e0),
+    midColor: new THREE.Color(0x86ccf0),
+    bottomColor: new THREE.Color(0xc8e8f3),
+    fogColor: new THREE.Color(0xcfe8f2),
     sunColor: new THREE.Color(0xfffaea),
-    sunIntensity: 1.45,
+    sunIntensity: 2.54,
     hemiSkyColor: new THREE.Color(0xf0f7ff),
     hemiGroundColor: new THREE.Color(0x62914c),
     skyboxKey: 'day',
@@ -64,7 +65,7 @@ export const STATION_MOODS: Record<string, SkyPalette> = {
     bottomColor: new THREE.Color(0xffc184),
     fogColor: new THREE.Color(0xedd0c0),
     sunColor: new THREE.Color(0xffcb85),
-    sunIntensity: 1.5,
+    sunIntensity: 2.62,
     hemiSkyColor: new THREE.Color(0xfce8d7),
     hemiGroundColor: new THREE.Color(0x75674c),
     skyboxKey: 'morning',
@@ -76,7 +77,7 @@ export const STATION_MOODS: Record<string, SkyPalette> = {
     bottomColor: new THREE.Color(0xd8cadc),
     fogColor: new THREE.Color(0xcac0d4),
     sunColor: new THREE.Color(0xf5e3d8),
-    sunIntensity: 1.15,
+    sunIntensity: 2.01,
     hemiSkyColor: new THREE.Color(0xdfe1f0),
     hemiGroundColor: new THREE.Color(0x58586b),
     skyboxKey: 'morning',
@@ -88,19 +89,19 @@ export const STATION_MOODS: Record<string, SkyPalette> = {
     bottomColor: new THREE.Color(0x8a84a6),
     fogColor: new THREE.Color(0x4d5370),
     sunColor: new THREE.Color(0xecd4d0),
-    sunIntensity: 0.9,
+    sunIntensity: 1.57,
     hemiSkyColor: new THREE.Color(0x5a6a8c),
     hemiGroundColor: new THREE.Color(0x38394a),
     skyboxKey: 'night',
   },
   outro: {
     // Sunrise of renewal: radiant dawn overlooking Rwanda's thousand hills
-    topColor: new THREE.Color(0x6396d1),
-    midColor: new THREE.Color(0xd3aed4),
-    bottomColor: new THREE.Color(0xffdeb8),
-    fogColor: new THREE.Color(0xebdce8),
+    topColor: new THREE.Color(0x4a9ade),
+    midColor: new THREE.Color(0xa6d2ee),
+    bottomColor: new THREE.Color(0xdcedee),
+    fogColor: new THREE.Color(0xdeecec),
     sunColor: new THREE.Color(0xfff1dc),
-    sunIntensity: 1.4,
+    sunIntensity: 2.45,
     hemiSkyColor: new THREE.Color(0xfdf4ec),
     hemiGroundColor: new THREE.Color(0x6b8f58),
     skyboxKey: 'morning',
@@ -242,7 +243,7 @@ export function createSkySystem(
   group.add(skyMesh);
 
   // 3. Floating Ethereal Light Motes / Dandelion Spores (Sky signature particle atmosphere)
-  const moteCount = 380;
+  const moteCount = 220;
   const motePositions = new Float32Array(moteCount * 3);
   const motePhases    = new Float32Array(moteCount);
   const moteScales    = new Float32Array(moteCount);
@@ -286,8 +287,9 @@ export function createSkySystem(
         gl_Position = projectionMatrix * mvPos;
 
         float pulse = 0.75 + 0.25 * sin(uTime * 2.0 + aPhase * 3.0);
-        gl_PointSize = (aScale * pulse * 14.0 * (120.0 / -mvPos.z)) * uPixelRatio;
-        gl_PointSize = clamp(gl_PointSize, 1.0, 36.0);
+        // Small pollen-sized motes (large ones read as snow against the bright sky)
+        gl_PointSize = (aScale * pulse * 4.5 * (120.0 / -mvPos.z)) * uPixelRatio;
+        gl_PointSize = clamp(gl_PointSize, 1.0, 14.0);
 
         vAlpha = pulse * 0.85;
       }

@@ -1,6 +1,15 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { STATION_COORDINATES } from './path';
+import { simplex2D } from './noise';
+import {
+  createBlobTreeGeometry,
+  createGrassTuftGeometry,
+  applyWindSway,
+  loadFoliageParts,
+  windUniforms,
+  type FoliagePart,
+} from './foliageAssets';
+import { StreamedLayer } from './StreamedLayer';
 
 export interface PropsManager {
   group: THREE.Group;
@@ -10,690 +19,512 @@ export interface PropsManager {
 }
 
 /**
- * Creates a dense, lush, and colorful natural environment inspired by the reference image.
- * Features:
- * - Layered canopy trees with both lush emerald-green and warm golden-autumn foliage.
- * - Dense 3D grass tufts, ferns, and tropical broadleaf plants.
- * - Clusters of bright orange button mushrooms and shelf mushrooms along paths and rocks.
- * - Sweeping drifts of coral-pink and golden-yellow wildflowers.
- * - Stylized cliff rock formations and river pebbles.
- * - Dynamic animated breeze ribbons drifting across the meadows.
- * - High-performance instancing maintaining 60 FPS.
+ * The natural landscape: groves of green and flame-orange trees, dense grass,
+ * wildflower drifts, ferns, mushrooms, rock outcrops and pebbles.
+ *
+ * Layout rules (all deterministic, seeded, so every playthrough looks the same):
+ *  - Density follows the path: the camera rides the path, so the 2-9 m band on
+ *    each side is the densest; meadows thin out with distance.
+ *  - Noise masks create natural clustering: groves, flower drifts, golden
+ *    grass patches and a flame-tree (orange) region.
+ *  - Station clearings stay open so the pavilions and UI moments read clearly.
+ *
+ * Rendering: every kind of object is a StreamedLayer (one draw call per model
+ * part, only nearby instances uploaded). See StreamedLayer.ts.
  */
+
+// Model URLs (Quaternius Stylized Nature MegaKit, CC0)
+const M = '/models/nature/';
+
+// Palettes (instance tints multiplied onto neutral grey textures)
+const TREE_GREENS = [0x8cc63f, 0x7abb33, 0x9fd14a, 0x6aae36, 0xb0d95a];
+const TREE_FLAME = [0xf59a2c, 0xf07a26, 0xf8b23a, 0xec6630, 0xf9cc48];
+const GRASS_GREENS = [0x9ad442, 0x86c83a, 0xa9da4a, 0x78bd36];
+const GRASS_GOLD = [0xd6c444, 0xe2b43c, 0xc8c94a];
+const GRASS_RUST = [0xf08a3a, 0xe8703a];
+const BUSH_GREENS = [0x5fae3c, 0x6fbf45, 0x55a236, 0x7ac64a];
+
+// Clearances (metres)
+const PATH_HALF_WIDTH = 1.6;
+const STATION_CLEAR_TREES = 13;
+const STATION_CLEAR_SMALL = 7;
+const WORLD_HALF = 115;
+
+/** Small seeded PRNG (mulberry32): same layout on every load. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function createPropsManager(
   scene: THREE.Scene,
   getHeight: (x: number, z: number) => number,
-  pathCurve?: THREE.CatmullRomCurve3
+  pathCurve?: THREE.CatmullRomCurve3,
+  camera?: THREE.Camera
 ): PropsManager {
   const group = new THREE.Group();
+  group.name = 'nature-props';
   scene.add(group);
 
-  const loader = new GLTFLoader();
-  const instancedMeshes: THREE.InstancedMesh[] = [];
-  const clonedGroups: THREE.Group[] = [];
+  const rand = mulberry32(2025);
+  const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rand() * arr.length)];
+  const range = (a: number, b: number): number => a + rand() * (b - a);
+
+  const layers: StreamedLayer[] = [];
+  const ownedParts: FoliagePart[] = [];
   const disposables: Array<THREE.BufferGeometry | THREE.Material> = [];
 
-  // Breeze ribbon system
-  const breezeGroup = new THREE.Group();
-  group.add(breezeGroup);
-  const breezeRibbons: Array<{ mesh: THREE.Mesh; speed: number; startX: number; rangeX: number }> = [];
+  // Low-quality mode: phones, or ?quality=low. Shorter draw distances.
+  const params = new URLSearchParams(window.location.search);
+  const isMobile = window.innerWidth < 768 || navigator.maxTouchPoints > 1;
+  const distanceScale = params.get('quality') === 'low' || isMobile ? 0.65 : 1;
 
-  // Pre-sample path points for proximity checking and path-side placement
-  const pathSamplePoints: THREE.Vector3[] = [];
+  // -------------------------------------------------------------------------
+  // Distance-to-path field: a 1.5 m grid, sampled bilinearly. Computing the
+  // exact distance for ~40k candidate positions would be ~20M operations.
+  // -------------------------------------------------------------------------
+  const GRID_STEP = 1.5;
+  const GRID_HALF = 121.5;
+  const GRID_N = Math.round((GRID_HALF * 2) / GRID_STEP) + 1;
+  const distGrid = new Float32Array(GRID_N * GRID_N).fill(999);
+  const pathX: number[] = [];
+  const pathZ: number[] = [];
+  const pathDirX: number[] = [];
+  const pathDirZ: number[] = [];
+
   if (pathCurve) {
-    for (let t = 0; t <= 1; t += 0.006) {
-      pathSamplePoints.push(pathCurve.getPointAt(t));
+    const len = pathCurve.getLength();
+    const n = Math.ceil(len);
+    const p = new THREE.Vector3();
+    const tan = new THREE.Vector3();
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      pathCurve.getPointAt(t, p);
+      pathCurve.getTangentAt(t, tan);
+      pathX.push(p.x);
+      pathZ.push(p.z);
+      const l = Math.hypot(tan.x, tan.z) || 1;
+      pathDirX.push(tan.x / l);
+      pathDirZ.push(tan.z / l);
+    }
+    for (let gz = 0; gz < GRID_N; gz++) {
+      const z = -GRID_HALF + gz * GRID_STEP;
+      for (let gx = 0; gx < GRID_N; gx++) {
+        const x = -GRID_HALF + gx * GRID_STEP;
+        let best = Infinity;
+        for (let k = 0; k < pathX.length; k++) {
+          const dx = pathX[k] - x;
+          const dz = pathZ[k] - z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < best) best = d2;
+        }
+        distGrid[gz * GRID_N + gx] = Math.sqrt(best);
+      }
     }
   }
 
-  // Ensure models never block the path, camera rail, or station circles
-  const isClearOfPathAndStations = (x: number, z: number, minDist = 6.0): boolean => {
-    // 1. Station clear zones
+  const distToPath = (x: number, z: number): number => {
+    const fx = (x + GRID_HALF) / GRID_STEP;
+    const fz = (z + GRID_HALF) / GRID_STEP;
+    const ix = Math.floor(fx);
+    const iz = Math.floor(fz);
+    if (ix < 0 || iz < 0 || ix >= GRID_N - 1 || iz >= GRID_N - 1) return 999;
+    const tx = fx - ix;
+    const tz = fz - iz;
+    const a = distGrid[iz * GRID_N + ix];
+    const b = distGrid[iz * GRID_N + ix + 1];
+    const c = distGrid[(iz + 1) * GRID_N + ix];
+    const d = distGrid[(iz + 1) * GRID_N + ix + 1];
+    return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
+  };
+
+  const distToStation = (x: number, z: number): number => {
+    let best = Infinity;
     for (const s of STATION_COORDINATES) {
-      if (Math.hypot(x - s.x, z - s.z) < minDist + 2.5) return false;
+      const d = Math.hypot(x - s.x, z - s.z);
+      if (d < best) best = d;
     }
-    // 2. Walking path clear corridor
-    for (const pt of pathSamplePoints) {
-      if (Math.hypot(x - pt.x, z - pt.z) < minDist) return false;
-    }
-    return true;
+    return best;
   };
 
-  const loadGLTFScene = async (url: string): Promise<THREE.Group | null> => {
-    try {
-      const gltf = await loader.loadAsync(url);
-      gltf.scene.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
-          if (child.geometry) child.geometry.computeVertexNormals();
-          if (child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach((m) => {
-              if ('flatShading' in m) (m as THREE.MeshStandardMaterial).flatShading = false;
-              if ('roughness' in m) (m as THREE.MeshStandardMaterial).roughness = 0.76;
-            });
-          }
-        }
-      });
-      return gltf.scene;
-    } catch (err) {
-      console.warn(`Could not load GLTF from ${url}:`, err);
-      return null;
+  // Noise masks in [-1, 1] that cluster things naturally
+  const groveMask = (x: number, z: number): number =>
+    simplex2D(x * 0.022 + 7.1, z * 0.022 - 3.4) * 0.75 + simplex2D(x * 0.06, z * 0.06) * 0.25;
+  const flameMask = (x: number, z: number): number => simplex2D(x * 0.013 + 31.7, z * 0.013 - 12.3);
+  const goldMask = (x: number, z: number): number => simplex2D(x * 0.03 - 40.2, z * 0.03 + 8.8);
+  const flowerMask = (x: number, z: number): number => simplex2D(x * 0.055 + 90.1, z * 0.055 + 2.5);
+
+  /** A random point beside the path, `minD`..`maxD` metres from its centre line. */
+  const pointBesidePath = (minD: number, maxD: number, out: THREE.Vector2): boolean => {
+    if (pathX.length === 0) return false;
+    const k = Math.floor(rand() * pathX.length);
+    const side = rand() < 0.5 ? -1 : 1;
+    const off = range(minD, maxD) * side;
+    // Perpendicular to the path direction
+    out.set(pathX[k] - pathDirZ[k] * off + range(-0.8, 0.8), pathZ[k] + pathDirX[k] * off + range(-0.8, 0.8));
+    return Math.abs(out.x) < WORLD_HALF && Math.abs(out.y) < WORLD_HALF;
+  };
+
+  const randomPoint = (out: THREE.Vector2): void => {
+    out.set(range(-WORLD_HALF, WORLD_HALF), range(-WORLD_HALF, WORLD_HALF));
+  };
+
+  // Shared scratch objects for building matrices (load time only)
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const scl = new THREE.Vector3();
+  const mat = new THREE.Matrix4();
+  const col = new THREE.Color();
+  const p2 = new THREE.Vector2();
+
+  const place = (
+    layer: StreamedLayer,
+    x: number,
+    z: number,
+    scale: number,
+    sink: number,
+    tint?: number,
+    tilt = 0.06,
+    yScale = 1
+  ): void => {
+    pos.set(x, getHeight(x, z) - sink, z);
+    euler.set(range(-tilt, tilt), rand() * Math.PI * 2, range(-tilt, tilt));
+    quat.setFromEuler(euler);
+    scl.set(scale, scale * yScale, scale);
+    mat.compose(pos, quat, scl);
+    if (tint !== undefined) {
+      // Small brightness jitter so neighbours never look copy-pasted
+      col.setHex(tint).multiplyScalar(range(0.9, 1.08));
+      layer.add(mat, col);
+    } else {
+      layer.add(mat);
     }
   };
 
-  const loadModelMesh = async (url: string): Promise<THREE.Mesh | null> => {
-    try {
-      const gltf = await loader.loadAsync(url);
-      let foundMesh: THREE.Mesh | null = null;
-      gltf.scene.traverse((child) => {
-        if (!foundMesh && child instanceof THREE.Mesh) {
-          foundMesh = child;
-        }
-      });
-      return foundMesh;
-    } catch (err) {
-      console.warn(`Could not load prop mesh from ${url}:`, err);
-      return null;
-    }
+  const makeLayer = (
+    parts: FoliagePart[],
+    opts: Omit<ConstructorParameters<typeof StreamedLayer>[0], 'parts'>
+  ): StreamedLayer => {
+    ownedParts.push(...parts, ...(opts.farParts ?? []));
+    const layer = new StreamedLayer({ parts, ...opts });
+    layers.push(layer);
+    return layer;
   };
 
-  const getSmoothGeom = (mesh: THREE.Mesh): THREE.BufferGeometry => {
-    const geom = mesh.geometry.clone();
-    geom.computeVertexNormals();
-    disposables.push(geom);
-    return geom;
+  const finish = (layer: StreamedLayer): void => {
+    layer.build();
+    group.add(layer.group);
   };
 
-  const getSmoothMaterial = (mesh: THREE.Mesh, fallbackColor: number): THREE.Material => {
-    if (mesh.material) {
-      if (Array.isArray(mesh.material)) {
-        return mesh.material.map((m) => {
-          const clone = m.clone();
-          if ('flatShading' in clone) (clone as THREE.MeshStandardMaterial).flatShading = false;
-          if ('roughness' in clone) (clone as THREE.MeshStandardMaterial).roughness = 0.74;
-          disposables.push(clone);
-          return clone;
-        })[0];
-      } else {
-        const clone = mesh.material.clone();
-        if ('flatShading' in clone) (clone as THREE.MeshStandardMaterial).flatShading = false;
-        if ('roughness' in clone) (clone as THREE.MeshStandardMaterial).roughness = 0.74;
-        disposables.push(clone);
-        return clone;
-      }
-    }
-    const mat = new THREE.MeshStandardMaterial({
-      color: fallbackColor,
-      roughness: 0.75,
-      metalness: 0.0,
-      flatShading: false,
-    });
-    disposables.push(mat);
-    return mat;
-  };
-
+  // =========================================================================
+  // LOAD
+  // =========================================================================
   const load = async (): Promise<void> => {
-    // =========================================================
-    // 1. CANOPY TREES — GREEN & FIERY GOLDEN ORANGE (Reference Match)
-    // =========================================================
-    const [tree1Scene, tree2Scene, tree3Scene, tree4Scene, twistedTreeScene] = await Promise.all([
-      loadGLTFScene('/models/nature/CommonTree_1.gltf'),
-      loadGLTFScene('/models/nature/CommonTree_2.gltf'),
-      loadGLTFScene('/models/nature/CommonTree_3.gltf'),
-      loadGLTFScene('/models/nature/CommonTree_4.gltf'),
-      loadGLTFScene('/models/nature/TwistedTree_1.gltf'),
+    const [
+      tree3, tree4, tree5,
+      bush, bushFlowers, fern, bigPlant, clover,
+      flowerA, flowerB, grassTall,
+      mushroom, rock1, rock2, rock3, pebble1, pebble2, rockPath,
+    ] = await Promise.all([
+      loadFoliageParts(M + 'CommonTree_3.gltf', { sway: 0.0012, castShadow: true }),
+      loadFoliageParts(M + 'CommonTree_4.gltf', { sway: 0.0012, castShadow: true }),
+      loadFoliageParts(M + 'CommonTree_5.gltf', { sway: 0.0012, castShadow: true }),
+      loadFoliageParts(M + 'Bush_Common.gltf', { sway: 0.01 }),
+      loadFoliageParts(M + 'Bush_Common_Flowers.gltf', { sway: 0.01 }),
+      loadFoliageParts(M + 'Fern_1.gltf', { sway: 0.02 }),
+      loadFoliageParts(M + 'Plant_1_Big.gltf', { sway: 0.008 }),
+      loadFoliageParts(M + 'Clover_1.gltf', { foliageNormals: 'up', sway: 0.04 }),
+      loadFoliageParts(M + 'Flower_3_Single.gltf', { foliageNormals: 'up', sway: 0.05 }),
+      loadFoliageParts(M + 'Flower_4_Single.gltf', { foliageNormals: 'up', sway: 0.05 }),
+      loadFoliageParts(M + 'Grass_Common_Tall.gltf', { sway: 0.05 }),
+      loadFoliageParts(M + 'Mushroom_Common.gltf'),
+      loadFoliageParts(M + 'Rock_Medium_1.gltf'),
+      loadFoliageParts(M + 'Rock_Medium_2.gltf'),
+      loadFoliageParts(M + 'Rock_Medium_3.gltf'),
+      loadFoliageParts(M + 'Pebble_Round_1.gltf'),
+      loadFoliageParts(M + 'Pebble_Round_2.gltf'),
+      loadFoliageParts(M + 'RockPath_Round_Small_1.gltf'),
     ]);
 
-    const greenPrototypes = [tree1Scene, tree2Scene, tree3Scene, tree4Scene].filter(
-      (t): t is THREE.Group => t !== null
+    // Rocks take a per-instance tint too (grey, mossy, warm) for variety
+    for (const p of [...rock1, ...rock2, ...rock3]) {
+      p.tinted = true;
+      // The rock texture is painted dark for a PBR engine; lift it to the soft grey of the reference
+      (p.material as THREE.MeshLambertMaterial).color.setScalar(1.9);
+    }
+    for (const p of [...pebble1, ...pebble2, ...rockPath]) {
+      (p.material as THREE.MeshLambertMaterial).color.setScalar(1.5);
+    }
+
+    // ---------------------------------------------------------------------
+    // 1. TREES: three models (CommonTree_2 skipped: 4.3k-triangle bark), blob LOD beyond 45 m
+    // ---------------------------------------------------------------------
+    const treeModels = [tree3, tree4, tree5].filter((m) => m.length > 0);
+    const treeLayers = treeModels.map((parts) => {
+      const leaf = parts.find((p) => p.tinted) ?? parts[0];
+      const blobGeom = createBlobTreeGeometry(leaf.geometry);
+      const blobMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+      const far: FoliagePart = { geometry: blobGeom, material: blobMat, tinted: true, shadow: false };
+      return makeLayer(parts, {
+        farParts: [far],
+        // Blob trees are ~170 triangles, so the whole forest can stay visible
+        maxDistance: 260,
+        lodDistance: 45,
+        keepRadius: 28,
+        coneCos: 0.1,
+      });
+    });
+
+    if (treeLayers.length > 0) {
+      const target = 560;
+      let placed = 0;
+      for (let i = 0; i < target * 12 && placed < target; i++) {
+        randomPoint(p2);
+        const d = distToPath(p2.x, p2.y);
+        if (d < 4.8) continue;
+        if (distToStation(p2.x, p2.y) < STATION_CLEAR_TREES) continue;
+        // Groves where the mask is high; a looser row of trees framing the path
+        let prob = THREE.MathUtils.smoothstep(groveMask(p2.x, p2.y), -0.3, 0.4);
+        if (d < 16) prob = Math.max(prob, 0.28);
+        if (rand() > prob) continue;
+
+        const flame = flameMask(p2.x, p2.y) > 0.2 || rand() < 0.07;
+        const layer = treeLayers[Math.floor(rand() * treeLayers.length)];
+        place(layer, p2.x, p2.y, range(0.62, 1.0), 0.25, pick(flame ? TREE_FLAME : TREE_GREENS), 0.04, range(0.9, 1.15));
+        placed++;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // 2. BUSHES (plain and flowering) along the path edges and grove borders
+    // ---------------------------------------------------------------------
+    const bushLayer = makeLayer(bush, { maxDistance: 40, keepRadius: 10 });
+    const bushFlowerLayer = makeLayer(bushFlowers, { maxDistance: 36, keepRadius: 10 });
+    for (let i = 0, placed = 0; i < 6000 && placed < 320; i++) {
+      const nearPath = rand() < 0.55;
+      if (nearPath) {
+        if (!pointBesidePath(3.4, 12, p2)) continue;
+      } else randomPoint(p2);
+      if (distToPath(p2.x, p2.y) < 3.2 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL + 1) continue;
+      if (!nearPath && rand() > THREE.MathUtils.smoothstep(groveMask(p2.x, p2.y), -0.5, 0.3)) continue;
+      const flowering = rand() < 0.35;
+      const flame = flameMask(p2.x, p2.y) > 0.3 && rand() < 0.5;
+      place(
+        flowering ? bushFlowerLayer : bushLayer,
+        p2.x, p2.y, range(0.5, 1.0), 0.15,
+        flame ? pick(TREE_FLAME) : pick(BUSH_GREENS)
+      );
+      placed++;
+    }
+
+    // ---------------------------------------------------------------------
+    // 3. GRASS: thousands of cheap procedural tufts + kit grass accents
+    // ---------------------------------------------------------------------
+    const tuftGeoms = [createGrassTuftGeometry(7, 11), createGrassTuftGeometry(9, 29)];
+    const tuftLayers = tuftGeoms.map((g) => {
+      const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+      applyWindSway(m, 0.16);
+      return makeLayer([{ geometry: g, material: m, tinted: true, shadow: false }], {
+        maxDistance: 44,
+        keepRadius: 8,
+        coneCos: 0.3,
+      });
+    });
+
+    const grassTint = (x: number, z: number): number => {
+      const gold = goldMask(x, z);
+      if (gold > 0.5) return pick(GRASS_GOLD);
+      if (flameMask(x, z) > 0.35 && rand() < 0.1) return pick(GRASS_RUST);
+      return pick(GRASS_GREENS);
+    };
+
+    // 3a. Thick fringe along the path (the area the camera sees most)
+    for (let i = 0; i < 9500; i++) {
+      if (!pointBesidePath(PATH_HALF_WIDTH + 0.3, 9, p2)) continue;
+      if (distToPath(p2.x, p2.y) < PATH_HALF_WIDTH + 0.25) continue;
+      if (distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL - 1) continue;
+      place(pick(tuftLayers), p2.x, p2.y, range(0.8, 1.45), 0.05, grassTint(p2.x, p2.y), 0.12, range(0.8, 1.35));
+    }
+    // 3b. Meadow tufts further out, in patches
+    for (let i = 0, placed = 0; i < 45000 && placed < 9000; i++) {
+      randomPoint(p2);
+      const d = distToPath(p2.x, p2.y);
+      if (d < 9 || d > 70) continue;
+      if (distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+      if (rand() > 0.35 + 0.5 * goldMask(p2.x * 1.7, p2.y * 1.7)) continue;
+      place(pick(tuftLayers), p2.x, p2.y, range(0.9, 1.6), 0.05, grassTint(p2.x, p2.y), 0.12, range(0.8, 1.4));
+      placed++;
+    }
+
+    // 3c. Taller kit grass close to the path
+    const grassTallLayer = makeLayer(grassTall, { maxDistance: 26, keepRadius: 8, coneCos: 0.3 });
+    for (let i = 0; i < 650; i++) {
+      if (!pointBesidePath(2.2, 8, p2)) continue;
+      if (distToPath(p2.x, p2.y) < 2.1 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+      place(grassTallLayer, p2.x, p2.y, range(0.55, 0.85), 0.05, grassTint(p2.x, p2.y), 0.1);
+    }
+
+    // ---------------------------------------------------------------------
+    // 4. WILDFLOWER DRIFTS (clusters where the flower mask is high)
+    // ---------------------------------------------------------------------
+    const flowerLayers = [flowerA, flowerB].filter((m) => m.length > 0).map((parts) =>
+      makeLayer(parts, { maxDistance: 26, keepRadius: 8, coneCos: 0.3 })
     );
-
-    // Create Warm Golden-Orange Autumn Tree Prototypes (Signature feature of Reference Image)
-    const autumnPrototypes: THREE.Group[] = [];
-    if (tree1Scene && tree2Scene) {
-      [tree1Scene, tree2Scene].forEach((srcGroup) => {
-        const autumnGroup = srcGroup.clone(true);
-        autumnGroup.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach((m) => {
-              if (m.name.toLowerCase().includes('leave') || m.name.toLowerCase().includes('foliage') || !m.name.toLowerCase().includes('bark')) {
-                const autumnMat = m.clone();
-                // Warm vibrant orange/amber foliage
-                autumnMat.color = new THREE.Color(0xf28b32);
-                disposables.push(autumnMat);
-                child.material = autumnMat;
-              }
-            });
-          }
-        });
-        autumnPrototypes.push(autumnGroup);
-      });
-    }
-
-    // Place 185 Canopy Trees across the terrain in dense natural groves and ridge lines
-    const totalTreesToPlace = 185;
-    let treesPlaced = 0;
-
-    for (let i = 0; i < totalTreesToPlace * 6 && treesPlaced < totalTreesToPlace; i++) {
-      // Natural clustered distribution using angle and radial variation
-      const angle = (i / (totalTreesToPlace * 6)) * Math.PI * 2 * 9 + Math.random() * 0.4;
-      const radius = 22 + Math.random() * 95;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-
-      if (isClearOfPathAndStations(x, z, 7.5)) {
-        const y = getHeight(x, z);
-        if (y > 1.8 && y < 18.0) {
-          // 35% chance of warm golden/orange autumn tree (especially on sunny ridges), 65% lush green
-          const isAutumn = Math.random() < 0.36 && autumnPrototypes.length > 0;
-          const pool = isAutumn ? autumnPrototypes : greenPrototypes;
-
-          if (pool.length > 0) {
-            const proto = pool[treesPlaced % pool.length];
-            const clone = proto.clone(true);
-            const scale = 0.36 + Math.random() * 0.22;
-            clone.position.set(x, y - 0.12, z);
-            clone.rotation.y = Math.random() * Math.PI * 2;
-            clone.scale.set(scale, scale * (0.92 + Math.random() * 0.2), scale);
-            group.add(clone);
-            clonedGroups.push(clone);
-            treesPlaced++;
-          }
+    if (flowerLayers.length > 0) {
+      for (let c = 0, clusters = 0; c < 4000 && clusters < 210; c++) {
+        const besidePath = rand() < 0.7;
+        if (besidePath) {
+          if (!pointBesidePath(2.2, 14, p2)) continue;
+        } else randomPoint(p2);
+        if (flowerMask(p2.x, p2.y) < 0.05) continue;
+        const cx = p2.x;
+        const cz = p2.y;
+        const layer = pick(flowerLayers);
+        const n = 3 + Math.floor(rand() * 7);
+        for (let k = 0; k < n; k++) {
+          const x = cx + range(-1.6, 1.6);
+          const z = cz + range(-1.6, 1.6);
+          if (distToPath(x, z) < 2.0 || distToStation(x, z) < STATION_CLEAR_SMALL) continue;
+          place(layer, x, z, range(0.45, 0.75), 0.02, 0x74bd3c, 0.12);
         }
+        clusters++;
       }
     }
 
-    // Grand Ancient Terrace Feature Trees (TwistedTree_1)
-    if (twistedTreeScene) {
-      const grandCount = 16;
-      let grandPlaced = 0;
-      for (let i = 0; i < grandCount * 8 && grandPlaced < grandCount; i++) {
-        const angle = (i / grandCount) * Math.PI * 2 + 0.35;
-        const radius = 42 + Math.random() * 65;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        if (isClearOfPathAndStations(x, z, 10.0)) {
-          const y = getHeight(x, z);
-          if (y > 4.0 && y < 18.0) {
-            const clone = twistedTreeScene.clone(true);
-            const scale = 0.22 + Math.random() * 0.09;
-            clone.position.set(x, y - 0.15, z);
-            clone.rotation.y = Math.random() * Math.PI * 2;
-            clone.scale.set(scale, scale, scale);
-            group.add(clone);
-            clonedGroups.push(clone);
-            grandPlaced++;
-          }
-        }
+    // ---------------------------------------------------------------------
+    // 5. GROUND PLANTS: ferns and big-leaf plants under groves, clover by the path
+    // ---------------------------------------------------------------------
+    const fernLayer = makeLayer(fern, { maxDistance: 60, keepRadius: 10 });
+    for (let i = 0, placed = 0; i < 5000 && placed < 260; i++) {
+      randomPoint(p2);
+      const d = distToPath(p2.x, p2.y);
+      if (d < 3 || d > 60 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+      if (rand() > THREE.MathUtils.smoothstep(groveMask(p2.x, p2.y), -0.2, 0.5) + (d < 10 ? 0.2 : 0)) continue;
+      place(fernLayer, p2.x, p2.y, range(0.18, 0.3), 0.05, pick(BUSH_GREENS), 0.08);
+      placed++;
+    }
+
+    const bigPlantLayer = makeLayer(bigPlant, { maxDistance: 70, keepRadius: 10 });
+    for (let i = 0, placed = 0; i < 4000 && placed < 150; i++) {
+      randomPoint(p2);
+      const d = distToPath(p2.x, p2.y);
+      if (d < 3.5 || d > 55 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+      if (groveMask(p2.x, p2.y) < -0.1) continue;
+      place(bigPlantLayer, p2.x, p2.y, range(0.32, 0.55), 0.05, pick(GRASS_GREENS), 0.08);
+      placed++;
+    }
+
+    const cloverLayer = makeLayer(clover, { maxDistance: 20, keepRadius: 8, coneCos: 0.3 });
+    for (let i = 0; i < 450; i++) {
+      if (!pointBesidePath(1.9, 10, p2)) continue;
+      if (distToPath(p2.x, p2.y) < 1.9 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL - 2) continue;
+      place(cloverLayer, p2.x, p2.y, range(0.6, 1.0), 0.03, pick(GRASS_GREENS), 0.1);
+    }
+
+    // ---------------------------------------------------------------------
+    // 6. MUSHROOMS: little clusters on path edges and under trees
+    // ---------------------------------------------------------------------
+    const mushroomLayer = makeLayer(mushroom, { maxDistance: 18, keepRadius: 8, coneCos: 0.3 });
+    for (let c = 0; c < 55; c++) {
+      if (!pointBesidePath(2.0, 6.5, p2)) continue;
+      if (distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+      const n = 1 + Math.floor(rand() * 3);
+      for (let k = 0; k < n; k++) {
+        const x = p2.x + range(-0.6, 0.6);
+        const z = p2.y + range(-0.6, 0.6);
+        if (distToPath(x, z) < 1.9) continue;
+        place(mushroomLayer, x, z, range(0.5, 0.95), 0.02, undefined, 0.15);
       }
     }
 
-    // =========================================================
-    // 2. ORANGE BUTTON MUSHROOMS (Key Reference Image Highlight)
-    // =========================================================
-    const mushroomCommonMesh = await loadModelMesh('/models/nature/Mushroom_Common.gltf');
-    if (mushroomCommonMesh) {
-      // 170 mushroom clusters lining the path borders, boulder roots, and tree trunks
-      const count = 170;
-      const geom = getSmoothGeom(mushroomCommonMesh);
-      const mat = getSmoothMaterial(mushroomCommonMesh, 0xf37f22);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-
-      // Half along path borders (distance 1.8 to 4.2m)
-      if (pathSamplePoints.length > 0) {
-        for (let i = 0; i < pathSamplePoints.length && placed < count * 0.65; i += 3) {
-          if (Math.random() < 0.68) {
-            const pt = pathSamplePoints[i];
-            const side = Math.random() > 0.5 ? 1 : -1;
-            const offsetDist = 2.0 + Math.random() * 2.2;
-            const ox = pt.x + (Math.random() - 0.5) * 1.5 + side * offsetDist;
-            const oz = pt.z + (Math.random() - 0.5) * 1.5 + side * offsetDist;
-            const oy = getHeight(ox, oz);
-
-            const scale = 0.55 + Math.random() * 0.45;
-            dummy.position.set(ox, oy, oz);
-            dummy.rotation.set(0, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.15);
-            dummy.scale.set(scale, scale, scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
+    // ---------------------------------------------------------------------
+    // 7. ROCKS: scattered boulders + big hillside outcrops
+    // ---------------------------------------------------------------------
+    const rockModels = [rock1, rock2, rock3].filter((m) => m.length > 0);
+    // Small boulders only near the camera; big outcrops are landmarks seen from far away.
+    // The two layers share geometry and materials (one draw call each).
+    const rockLayers = rockModels.map((parts) => makeLayer(parts, { maxDistance: 60, keepRadius: 12, coneCos: 0.2 }));
+    const outcropLayers = rockModels.map((parts) =>
+      makeLayer(parts, { maxDistance: 230, keepRadius: 20, coneCos: 0.1 })
+    );
+    const ROCK_TINTS = [0xffffff, 0xe6eed8, 0xd9dccf, 0xf0e8da];
+    if (rockLayers.length > 0) {
+      // Boulders near the path
+      for (let i = 0, placed = 0; i < 3000 && placed < 150; i++) {
+        if (!pointBesidePath(2.8, 30, p2)) continue;
+        if (distToPath(p2.x, p2.y) < 2.8 || distToStation(p2.x, p2.y) < STATION_CLEAR_SMALL) continue;
+        place(pick(rockLayers), p2.x, p2.y, range(0.22, 0.6), 0.1, pick(ROCK_TINTS), 0.3);
+        placed++;
       }
-
-      // Rest scattered in grassy meadows
-      for (let i = 0; i < count * 4 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 160;
-        const z = (Math.random() - 0.5) * 160;
-        const y = getHeight(x, z);
-        if (y > 1.0 && isClearOfPathAndStations(x, z, 3.0)) {
-          const scale = 0.5 + Math.random() * 0.4;
-          dummy.position.set(x, y, z);
-          dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
-          dummy.scale.set(scale, scale, scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
+      // Outcrops: clusters of big, half-buried rocks on the hillsides
+      for (let c = 0, clusters = 0; c < 2000 && clusters < 34; c++) {
+        randomPoint(p2);
+        const d = distToPath(p2.x, p2.y);
+        if (d < 16 || distToStation(p2.x, p2.y) < STATION_CLEAR_TREES + 4) continue;
+        const n = 3 + Math.floor(rand() * 4);
+        const base = range(1.4, 3.0);
+        for (let k = 0; k < n; k++) {
+          const s = base * range(0.45, 1.0);
+          const x = p2.x + range(-1.6, 1.6) * base;
+          const z = p2.y + range(-1.6, 1.6) * base;
+          if (distToPath(x, z) < 6) continue;
+          place(pick(outcropLayers), x, z, s, s * 0.45, pick(ROCK_TINTS), 0.35, range(0.8, 1.3));
         }
+        clusters++;
       }
-
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
     }
 
-    // Shelf Mushrooms on rocks & dead trunks (Mushroom_Laetiporus)
-    const mushroomShelfMesh = await loadModelMesh('/models/nature/Mushroom_Laetiporus.gltf');
-    if (mushroomShelfMesh) {
-      const count = 45;
-      const geom = getSmoothGeom(mushroomShelfMesh);
-      const mat = getSmoothMaterial(mushroomShelfMesh, 0xe88a2a);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 150;
-        const z = (Math.random() - 0.5) * 150;
-        const y = getHeight(x, z);
-        if (y > 2.0 && isClearOfPathAndStations(x, z, 4.0)) {
-          const scale = 0.65 + Math.random() * 0.45;
-          dummy.position.set(x, y + 0.15, z);
-          dummy.rotation.set((Math.random() - 0.5) * 0.4, Math.random() * Math.PI * 2, 0);
-          dummy.scale.set(scale, scale, scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
+    // ---------------------------------------------------------------------
+    // 8. PEBBLES on and along the path, stepping stones at stations
+    // ---------------------------------------------------------------------
+    const pebbleLayers = [pebble1, pebble2].filter((m) => m.length > 0).map((parts) =>
+      makeLayer(parts, { maxDistance: 34, keepRadius: 8, coneCos: 0.3 })
+    );
+    if (pebbleLayers.length > 0) {
+      for (let i = 0; i < 650; i++) {
+        if (!pointBesidePath(0.2, 4.5, p2)) continue;
+        if (distToStation(p2.x, p2.y) < 4) continue;
+        place(pick(pebbleLayers), p2.x, p2.y, range(0.6, 1.4), -0.08, undefined, 0.1, 0.8);
       }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
     }
 
-    // =========================================================
-    // 3. 3D GRASS TUFTS (Dense ground fringe lining the trail)
-    // =========================================================
-    const grassMesh = await loadModelMesh('/models/nature/Grass_Common_Short.gltf') || await loadModelMesh('/models/nature/Grass_Wispy_Short.gltf');
-    if (grassMesh) {
-      // 360 instanced grass tufts along path borders and under trees
-      const count = 360;
-      const geom = getSmoothGeom(grassMesh);
-      const mat = getSmoothMaterial(grassMesh, 0x6dbf43);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = false; // keep perf lightning-fast
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-
-      // Trail edge grass fringes
-      if (pathSamplePoints.length > 0) {
-        for (let i = 0; i < pathSamplePoints.length && placed < count * 0.72; i += 2) {
-          const pt = pathSamplePoints[i];
-          const side = (placed % 2 === 0 ? 1 : -1);
-          const offsetDist = 1.8 + Math.random() * 1.8;
-          const gx = pt.x + (Math.random() - 0.5) * 1.0 + side * offsetDist;
-          const gz = pt.z + (Math.random() - 0.5) * 1.0 + side * offsetDist;
-          const gy = getHeight(gx, gz) - 0.04;
-
-          const scale = 0.45 + Math.random() * 0.35;
-          dummy.position.set(gx, gy, gz);
-          dummy.rotation.set(0, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.1);
-          dummy.scale.set(scale, scale * (0.9 + Math.random() * 0.3), scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
+    const rockPathLayer = makeLayer(rockPath, { maxDistance: 50, keepRadius: 10 });
+    STATION_COORDINATES.forEach((coord) => {
+      for (let s = 1; s <= 4; s++) {
+        const offsetDist = 2.0 + s * 1.1;
+        const angle = coord.t * Math.PI * 2 + s * 0.2;
+        const x = coord.x + Math.sin(angle) * offsetDist;
+        const z = coord.z + Math.cos(angle) * offsetDist;
+        place(rockPathLayer, x, z, 0.65, -0.04, undefined, 0, 0.75);
       }
+    });
 
-      // Meadow scatter
-      for (let i = 0; i < count * 4 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 165;
-        const z = (Math.random() - 0.5) * 165;
-        const y = getHeight(x, z);
-        if (y > 0.8 && isClearOfPathAndStations(x, z, 2.5)) {
-          const scale = 0.4 + Math.random() * 0.35;
-          dummy.position.set(x, y - 0.03, z);
-          dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
-          dummy.scale.set(scale, scale, scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
-      }
+    // Upload everything and show the first frame's worth of instances
+    layers.forEach(finish);
+    forceRefresh = true;
 
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
+    if (import.meta.env.DEV) {
+      const total = layers.reduce((s, l) => s + l.size, 0);
+      console.info(`[props] ${layers.length} layers, ${total} instances placed`);
     }
 
-    // =========================================================
-    // 4. FERNS & BROADLEAF TROPICAL PLANTS (Foreground richness)
-    // =========================================================
-    const fernMesh = await loadModelMesh('/models/nature/Fern_1.gltf');
-    if (fernMesh) {
-      const count = 65;
-      const geom = getSmoothGeom(fernMesh);
-      const mat = getSmoothMaterial(fernMesh, 0x489635);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 150;
-        const z = (Math.random() - 0.5) * 150;
-        if (isClearOfPathAndStations(x, z, 3.8)) {
-          const y = getHeight(x, z);
-          if (y > 1.2 && y < 16.5) {
-            const scale = 0.22 + Math.random() * 0.12;
-            dummy.position.set(x, y - 0.02, z);
-            dummy.rotation.set(0, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.1);
-            dummy.scale.set(scale, scale, scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    const tropicalPlantMesh = await loadModelMesh('/models/nature/Plant_1_Big.gltf') || await loadModelMesh('/models/nature/Plant_7_Big.gltf');
-    if (tropicalPlantMesh) {
-      const count = 55;
-      const geom = getSmoothGeom(tropicalPlantMesh);
-      const mat = getSmoothMaterial(tropicalPlantMesh, 0x5aa83e);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 155;
-        const z = (Math.random() - 0.5) * 155;
-        if (isClearOfPathAndStations(x, z, 4.0)) {
-          const y = getHeight(x, z);
-          if (y > 1.0) {
-            const scale = 0.55 + Math.random() * 0.35;
-            dummy.position.set(x, y - 0.05, z);
-            dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
-            dummy.scale.set(scale, scale * (0.9 + Math.random() * 0.2), scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // =========================================================
-    // 5. WILDFLOWER MEADOW DRIFTS (Coral/Pink & Golden Blossom)
-    // =========================================================
-    const pinkFlowersMesh = await loadModelMesh('/models/nature/Flower_3_Group.gltf');
-    if (pinkFlowersMesh) {
-      const count = 150;
-      const geom = getSmoothGeom(pinkFlowersMesh);
-      const mat = getSmoothMaterial(pinkFlowersMesh, 0xf26477);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = false;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 160;
-        const z = (Math.random() - 0.5) * 160;
-        if (isClearOfPathAndStations(x, z, 2.2)) {
-          const y = getHeight(x, z);
-          if (y > 0.5 && y < 17.0) {
-            const scale = 0.35 + Math.random() * 0.25;
-            dummy.position.set(x, y, z);
-            dummy.rotation.y = Math.random() * Math.PI * 2;
-            dummy.scale.set(scale, scale, scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    const yellowBlossomsMesh = await loadModelMesh('/models/nature/Flower_4_Group.gltf');
-    if (yellowBlossomsMesh) {
-      const count = 140;
-      const geom = getSmoothGeom(yellowBlossomsMesh);
-      const mat = getSmoothMaterial(yellowBlossomsMesh, 0xf9cb38);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = false;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 160;
-        const z = (Math.random() - 0.5) * 160;
-        if (isClearOfPathAndStations(x, z, 2.2)) {
-          const y = getHeight(x, z);
-          if (y > 0.5 && y < 17.0) {
-            const scale = 0.32 + Math.random() * 0.22;
-            dummy.position.set(x, y, z);
-            dummy.rotation.y = Math.random() * Math.PI * 2;
-            dummy.scale.set(scale, scale, scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // =========================================================
-    // 6. LUSH BUSHES & FLOWERING SHRUBS
-    // =========================================================
-    const bushMesh = await loadModelMesh('/models/nature/Bush_Common.gltf');
-    if (bushMesh) {
-      const count = 120;
-      const geom = getSmoothGeom(bushMesh);
-      const mat = getSmoothMaterial(bushMesh, 0x5ea64a);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 6 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 170;
-        const z = (Math.random() - 0.5) * 170;
-        if (isClearOfPathAndStations(x, z, 4.0)) {
-          const y = getHeight(x, z);
-          if (y > 0.8) {
-            const scale = 0.42 + Math.random() * 0.35;
-            dummy.position.set(x, y - 0.05, z);
-            dummy.rotation.y = Math.random() * Math.PI * 2;
-            dummy.scale.set(scale, scale * (0.9 + Math.random() * 0.2), scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    const bushFlowersMesh = await loadModelMesh('/models/nature/Bush_Common_Flowers.gltf');
-    if (bushFlowersMesh) {
-      const count = 90;
-      const geom = getSmoothGeom(bushFlowersMesh);
-      const mat = getSmoothMaterial(bushFlowersMesh, 0x6ab552);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 6 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 165;
-        const z = (Math.random() - 0.5) * 165;
-        if (isClearOfPathAndStations(x, z, 4.2)) {
-          const y = getHeight(x, z);
-          if (y > 1.0) {
-            const scale = 0.4 + Math.random() * 0.3;
-            dummy.position.set(x, y - 0.05, z);
-            dummy.rotation.y = Math.random() * Math.PI * 2;
-            dummy.scale.set(scale, scale, scale);
-            dummy.updateMatrix();
-            inst.setMatrixAt(placed, dummy.matrix);
-            placed++;
-          }
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // =========================================================
-    // 7. BOULDERS, CLIFF FORMATIONS & PEBBLES
-    // =========================================================
-    const rock1Mesh = await loadModelMesh('/models/nature/Rock_Medium_1.gltf');
-    const rock2Mesh = await loadModelMesh('/models/nature/Rock_Medium_2.gltf');
-    const rockPrototypes = [rock1Mesh, rock2Mesh].filter((r): r is THREE.Mesh => r !== null);
-
-    if (rockPrototypes.length > 0) {
-      const count = 80;
-      const primary = rockPrototypes[0];
-      const geom = getSmoothGeom(primary);
-      const mat = getSmoothMaterial(primary, 0x8a857b);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      for (let i = 0; i < count * 5 && placed < count; i++) {
-        const x = (Math.random() - 0.5) * 175;
-        const z = (Math.random() - 0.5) * 175;
-        if (isClearOfPathAndStations(x, z, 3.6)) {
-          const y = getHeight(x, z);
-          const scale = 0.48 + Math.random() * 0.48;
-          dummy.position.set(x, y - 0.15, z);
-          dummy.rotation.set(Math.random() * 0.25, Math.random() * Math.PI * 2, Math.random() * 0.25);
-          dummy.scale.set(scale, scale, scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // River / Path Pebbles (Pebble_Round_1)
-    const pebbleMesh = await loadModelMesh('/models/nature/Pebble_Round_1.gltf');
-    if (pebbleMesh) {
-      const count = 120;
-      const geom = getSmoothGeom(pebbleMesh);
-      const mat = getSmoothMaterial(pebbleMesh, 0x9c9489);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-      if (pathSamplePoints.length > 0) {
-        for (let i = 0; i < pathSamplePoints.length && placed < count; i += 2) {
-          const pt = pathSamplePoints[i];
-          const offsetDist = 1.6 + Math.random() * 2.0;
-          const side = Math.random() > 0.5 ? 1 : -1;
-          const px = pt.x + (Math.random() - 0.5) * 1.0 + side * offsetDist;
-          const pz = pt.z + (Math.random() - 0.5) * 1.0 + side * offsetDist;
-          const py = getHeight(px, pz) + 0.02;
-
-          const scale = 0.6 + Math.random() * 0.5;
-          dummy.position.set(px, py, pz);
-          dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
-          dummy.scale.set(scale, scale * 0.7, scale);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // Stepping Stones near Station Approaches
-    const rockPathMesh = await loadModelMesh('/models/nature/RockPath_Round_Small_1.gltf');
-    if (rockPathMesh) {
-      const count = 35;
-      const geom = getSmoothGeom(rockPathMesh);
-      const mat = getSmoothMaterial(rockPathMesh, 0x9e988d);
-      const inst = new THREE.InstancedMesh(geom, mat, count);
-      inst.receiveShadow = true;
-
-      const dummy = new THREE.Object3D();
-      let placed = 0;
-
-      STATION_COORDINATES.forEach((coord) => {
-        for (let s = 1; s <= 4 && placed < count; s++) {
-          const offsetDist = 2.0 + s * 1.1;
-          const angle = coord.t * Math.PI * 2 + s * 0.2;
-          const px = coord.x + Math.sin(angle) * offsetDist;
-          const pz = coord.z + Math.cos(angle) * offsetDist;
-          const py = getHeight(px, pz) + 0.04;
-
-          dummy.position.set(px, py, pz);
-          dummy.rotation.set(0, angle, 0);
-          dummy.scale.set(0.65, 0.5, 0.65);
-          dummy.updateMatrix();
-          inst.setMatrixAt(placed, dummy.matrix);
-          placed++;
-        }
-      });
-
-      inst.instanceMatrix.needsUpdate = true;
-      group.add(inst);
-      instancedMeshes.push(inst);
-    }
-
-    // =========================================================
-    // 8. DYNAMIC BREEZE RIBBONS / WIND TRAILS (From Reference Image)
-    // =========================================================
     createBreezeRibbons();
   };
 
-  /**
-   * Creates delicate, curved translucent breeze ribbons flowing across the Rwandan meadows,
-   * directly reproducing the atmospheric wind trails seen in the reference image.
-   */
+  // =========================================================================
+  // Breeze ribbons: thin white wind trails drifting over the meadows
+  // =========================================================================
+  const breezeGroup = new THREE.Group();
+  group.add(breezeGroup);
+  const breezeRibbons: Array<{ mesh: THREE.Mesh; speed: number; startX: number }> = [];
+
   const createBreezeRibbons = (): void => {
     const ribbonCount = 8;
     const ribbonMat = new THREE.ShaderMaterial({
@@ -713,12 +544,9 @@ export function createPropsManager(
         uniform vec3 uColor;
         uniform float uOpacity;
         void main() {
-          // Fade at start and end of ribbon
           float fadeX = smoothstep(0.0, 0.25, vUv.x) * (1.0 - smoothstep(0.75, 1.0, vUv.x));
-          // Fade at top and bottom edge
           float fadeY = 1.0 - abs(vUv.y - 0.5) * 2.0;
-          float alpha = fadeX * fadeY * uOpacity;
-          gl_FragColor = vec4(uColor, alpha);
+          gl_FragColor = vec4(uColor, fadeX * fadeY * uOpacity);
         }
       `,
       transparent: true,
@@ -729,77 +557,88 @@ export function createPropsManager(
     disposables.push(ribbonMat);
 
     for (let r = 0; r < ribbonCount; r++) {
-      // Create a smooth sinuous ribbon geometry
       const points: THREE.Vector3[] = [];
-      const ribbonLength = 18 + Math.random() * 12;
+      const ribbonLength = 18 + rand() * 12;
       const segs = 20;
       for (let s = 0; s <= segs; s++) {
         const t = s / segs;
-        const lx = (t - 0.5) * ribbonLength;
-        const lz = Math.sin(t * Math.PI * 2.2) * 1.8;
-        const ly = Math.cos(t * Math.PI * 1.8) * 0.45;
-        points.push(new THREE.Vector3(lx, ly, lz));
+        points.push(new THREE.Vector3((t - 0.5) * ribbonLength, Math.cos(t * Math.PI * 1.8) * 0.45, Math.sin(t * Math.PI * 2.2) * 1.8));
       }
-      const curve = new THREE.CatmullRomCurve3(points);
-      const tubeGeo = new THREE.TubeGeometry(curve, 24, 0.06, 6, false);
+      const tubeGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, 0.06, 6, false);
       disposables.push(tubeGeo);
-
       const ribbonMesh = new THREE.Mesh(tubeGeo, ribbonMat);
-
-      // Distribute in different view sectors
       const startX = -70 + r * 18;
       const centerZ = -30 + (r % 3) * 25;
-      const baseHeight = getHeight(startX, centerZ) + 1.8 + Math.random() * 1.8;
-
-      ribbonMesh.position.set(startX, baseHeight, centerZ);
-      ribbonMesh.rotation.y = 0.2 + (Math.random() - 0.5) * 0.4;
+      ribbonMesh.position.set(startX, getHeight(startX, centerZ) + 1.8 + rand() * 1.8, centerZ);
+      ribbonMesh.rotation.y = 0.2 + (rand() - 0.5) * 0.4;
       breezeGroup.add(ribbonMesh);
-
-      breezeRibbons.push({
-        mesh: ribbonMesh,
-        speed: 3.5 + Math.random() * 2.5,
-        startX: startX,
-        rangeX: 130,
-      });
+      breezeRibbons.push({ mesh: ribbonMesh, speed: 3.5 + rand() * 2.5, startX });
     }
   };
 
-  const update = (dt: number, elapsed: number): void => {
-    // 1. Gentle foliage breeze sway
-    group.rotation.y = Math.sin(elapsed * 0.35) * 0.0015;
+  // =========================================================================
+  // UPDATE: wind time + streaming refresh when the camera moved or turned
+  // =========================================================================
+  const camPos = new THREE.Vector3();
+  const camDir = new THREE.Vector3();
+  let lastX = Infinity;
+  let lastZ = Infinity;
+  let lastFx = 0;
+  let lastFz = 0;
+  let lastCone = true;
+  let forceRefresh = false;
 
-    // 2. Animate breeze ribbons across the landscape
+  const update = (dt: number, elapsed: number): void => {
+    windUniforms.uWindTime.value = elapsed;
+
+    if (camera) {
+      camera.getWorldPosition(camPos);
+      camera.getWorldDirection(camDir);
+      const hLen = Math.hypot(camDir.x, camDir.z);
+      // Steep aerial views: draw all directions (the cone would cut the ground below)
+      const heightAboveGround = camPos.y - getHeight(camPos.x, camPos.z);
+      const useCone = hLen > 0.45 && heightAboveGround < 30;
+      const fx = hLen > 0.0001 ? camDir.x / hLen : 0;
+      const fz = hLen > 0.0001 ? camDir.z / hLen : 1;
+      const moved = Math.hypot(camPos.x - lastX, camPos.z - lastZ) > 2;
+      const turned = fx * lastFx + fz * lastFz < 0.995;
+      if (forceRefresh || moved || turned || useCone !== lastCone) {
+        for (const layer of layers) layer.refresh(camPos.x, camPos.z, fx, fz, distanceScale, useCone);
+        lastX = camPos.x;
+        lastZ = camPos.z;
+        lastFx = fx;
+        lastFz = fz;
+        lastCone = useCone;
+        forceRefresh = false;
+      }
+    }
+
     for (const b of breezeRibbons) {
       b.mesh.position.x += b.speed * dt;
-      // Drift gently up and down
       b.mesh.position.y += Math.sin(elapsed * 1.5 + b.startX) * 0.005;
-
-      // Wrap around when past boundary
       if (b.mesh.position.x > 85) {
         b.mesh.position.x = -85;
-        const newY = getHeight(b.mesh.position.x, b.mesh.position.z) + 1.8 + Math.random() * 1.5;
-        b.mesh.position.y = newY;
+        b.mesh.position.y = getHeight(b.mesh.position.x, b.mesh.position.z) + 1.8 + Math.random() * 1.5;
       }
     }
   };
 
   const dispose = (): void => {
-    for (const inst of instancedMeshes) {
-      inst.geometry.dispose();
-      if (Array.isArray(inst.material)) {
-        inst.material.forEach((m) => m.dispose());
-      } else {
-        inst.material.dispose();
+    layers.forEach((l) => l.dispose());
+    const seen = new Set<unknown>();
+    for (const p of ownedParts) {
+      for (const item of [p.geometry, p.material]) {
+        if (seen.has(item)) continue;
+        seen.add(item);
+        item.dispose();
       }
-      group.remove(inst);
+      const map = (p.material as THREE.MeshLambertMaterial).map;
+      if (map && !seen.has(map)) {
+        seen.add(map);
+        map.dispose();
+      }
     }
-    for (const cl of clonedGroups) {
-      group.remove(cl);
-    }
-    breezeRibbons.forEach((b) => {
-      breezeGroup.remove(b.mesh);
-    });
-    group.remove(breezeGroup);
+    breezeRibbons.forEach((b) => breezeGroup.remove(b.mesh));
     disposables.forEach((item) => item.dispose());
     scene.remove(group);
   };

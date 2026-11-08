@@ -14,19 +14,21 @@ export interface LightingSetup {
 export function setupLighting(scene: THREE.Scene): LightingSetup {
   // Soft dreamlike atmospheric fog matching the Sky dome horizon
   // Exponential fog creates velvety depth separation without harsh distance cutoffs
-  const horizonFogColor = new THREE.Color(0xe6daf0);
-  scene.fog = new THREE.FogExp2(horizonFogColor, 0.0075);
+  // Lighter density than before so the backdrop hills stay readable as soft silhouettes
+  const horizonFogColor = new THREE.Color(0xd2eaf2);
+  scene.fog = new THREE.FogExp2(horizonFogColor, 0.0048);
 
   // Hemisphere light: soft ethereal sky cyan down to warm Rwandan hillside bounce
-  const hemiLight = new THREE.HemisphereLight(0xe8f2fc, 0x6e8f5b, 0.75);
+  // Intensities are physical since three r155 (no PI factor), hence the larger numbers
+  const hemiLight = new THREE.HemisphereLight(0xe8f2fc, 0x6e8f5b, 1.25);
   scene.add(hemiLight);
 
   // Soft ambient fill light to keep shadowed valleys readable and inviting
-  const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.45);
+  const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.5);
   scene.add(ambientLight);
 
   // Warm equatorial golden sun (cinematic 3/4 angle)
-  const sunLight = new THREE.DirectionalLight(0xfff3db, 1.35);
+  const sunLight = new THREE.DirectionalLight(0xfff3db, 2.4);
   sunLight.position.set(65, 85, 45);
   sunLight.castShadow = true;
 

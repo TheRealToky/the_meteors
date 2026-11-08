@@ -2,7 +2,7 @@ import { createRenderer } from './core/renderer';
 import { AnimationLoop } from './core/loop';
 import { setupResize } from './core/resize';
 import { setupLighting } from './world/lighting';
-import { createTerrain } from './world/terrain';
+import { createTerrain, createBackdropHills } from './world/terrain';
 import { createPathCurve, createPathMesh } from './world/path';
 import { createPropsManager } from './world/props';
 import { createSettlementsManager } from './world/settlements';
@@ -78,6 +78,10 @@ async function bootstrap() {
   // 4. Initialize Core Three.js Renderer, Scene, Camera
   const { renderer, scene, camera } = createRenderer({ canvas });
   setupResize(camera, renderer);
+  // Debug only: lets us read renderer.info (draw calls, triangles) from the console
+  if (import.meta.env.DEV || new URLSearchParams(window.location.search).get('debug') === '1') {
+    (window as unknown as { __lifePath: unknown }).__lifePath = { renderer, scene, camera };
+  }
 
   // 5. Setup Lighting and Atmospheric Fog
   const lighting = setupLighting(scene);
@@ -88,6 +92,9 @@ async function bootstrap() {
   // 7. Create Procedural Rwanda Terraced Hills Terrain
   const terrain = createTerrain();
   scene.add(terrain.mesh);
+  // Distant rolling hills so the world has no visible edge
+  const backdropHills = createBackdropHills(terrain.getHeight);
+  scene.add(backdropHills.mesh);
 
   // 8. Create Life Path Spline and 3D Ribbon Walkway (snapped seamlessly to terrain)
   const pathCurve = createPathCurve(terrain.getHeight);
@@ -112,7 +119,7 @@ async function bootstrap() {
   characterRig.load().catch((err) => console.warn('[CharacterRig] load error:', err));
 
   // 12. Create Nature Props Manager (lush dense vegetation, mushrooms, grass, autumn trees, breeze ribbons)
-  const propsManager = createPropsManager(scene, terrain.getHeight, pathCurve);
+  const propsManager = createPropsManager(scene, terrain.getHeight, pathCurve, camera);
   propsManager.load().catch((err) => console.warn('Props load warning:', err));
 
   // 13. Create Rural Rwandan Settlements Manager (homesteads, paved roads, transport vehicles, street props)

@@ -26,6 +26,8 @@ All 3D assets and textures in this project are licensed under open licenses (CC0
   - `public/models/nature/Bush_Common_Flowers.gltf` + `.bin` (Flowering hillside bush)
   - `public/models/nature/Flower_3_Group.gltf` + `.bin` (Wildflower meadow clump)
   - `public/models/nature/Flower_4_Group.gltf` + `.bin` (Highland blossom cluster)
+  - `public/models/nature/Flower_3_Single.gltf`, `Flower_4_Single.gltf` + `.bin` (Single wildflowers along the path)
+  - `public/models/nature/Clover_1.gltf` + `.bin` (Ground clover patches)
   - `public/models/nature/Fern_1.gltf` + `.bin` (Layered forest fern)
   - `public/models/nature/Mushroom_Common.gltf` + `.bin` (Orange button mushroom cluster)
   - `public/models/nature/Mushroom_Laetiporus.gltf` + `.bin` (Shelf mushrooms)
