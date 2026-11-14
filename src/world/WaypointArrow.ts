@@ -6,24 +6,28 @@ export interface WaypointArrowOptions {
 }
 
 /**
- * A prominent, stylized 3D red spinning arrow that hovers above the active milestone house.
- * Features continuous rotation, vertical floating bobbing, and a pulsing ground/roof halo.
+ * Marks the next station: a soft golden pillar of light rising from the
+ * building, a slowly turning gem floating above the roof, and a ring of light
+ * on the ground that ripples outward.
+ *
+ * Calm on purpose (the journey includes divorce and death), visible from far
+ * away (the pillar is 40 m tall), and cheap: 3 draw calls, no extra light
+ * (a PointLight would add a light to every material's shader).
  */
 export class WaypointArrow {
   private scene: THREE.Scene;
   private getHeight?: (x: number, z: number) => number;
 
-  private group: THREE.Group = new THREE.Group();
-  private arrowMeshGroup: THREE.Group = new THREE.Group();
-  private beaconRing: THREE.Mesh | null = null;
-  private pointLight: THREE.PointLight | null = null;
+  private group = new THREE.Group();
+  private gem: THREE.Mesh;
+  private pillarMat: THREE.ShaderMaterial;
+  private ringMat: THREE.ShaderMaterial;
 
-  private baseY: number = 0;
-  private isVisible: boolean = false;
-  private currentScale: number = 0;
-  private targetScale: number = 0;
+  private gemBaseY = 0;
+  private isVisible = false;
+  private currentScale = 0;
+  private targetScale = 0;
 
-  // Disposables
   private geometries: THREE.BufferGeometry[] = [];
   private materials: THREE.Material[] = [];
 
@@ -31,94 +35,111 @@ export class WaypointArrow {
     this.scene = options.scene;
     this.getHeight = options.getHeight;
 
-    this.buildArrow();
+    const gold = new THREE.Color(0xffd27a);
+
+    // 1. Light pillar: open cylinder, brightest at the base, fading upward,
+    //    with soft edges (fresnel-like) so it reads as light, not as a tube
+    const pillarGeo = new THREE.CylinderGeometry(1.4, 1.9, 40, 24, 1, true);
+    pillarGeo.translate(0, 20, 0);
+    this.pillarMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: gold }, uTime: { value: 0 }, uFade: { value: 1 } },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormalV;
+        varying vec3 vViewDir;
+        void main() {
+          vUv = uv;
+          vNormalV = normalize(normalMatrix * normal);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uTime;
+        uniform float uFade;
+        varying vec2 vUv;
+        varying vec3 vNormalV;
+        varying vec3 vViewDir;
+        void main() {
+          float edge = abs(dot(normalize(vNormalV), normalize(vViewDir)));
+          float soft = pow(edge, 1.5);
+          float rise = pow(1.0 - vUv.y, 2.2);
+          float shimmer = 0.85 + 0.15 * sin(vUv.y * 40.0 - uTime * 2.0);
+          gl_FragColor = vec4(uColor, soft * rise * shimmer * 0.45 * uFade);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    this.geometries.push(pillarGeo);
+    this.materials.push(this.pillarMat);
+    this.group.add(new THREE.Mesh(pillarGeo, this.pillarMat));
+
+    // 2. Floating gem (octahedron) above the roof
+    const gemGeo = new THREE.OctahedronGeometry(0.75, 0);
+    gemGeo.scale(1, 1.5, 1);
+    const gemMat = new THREE.MeshBasicMaterial({ color: 0xffe3a3 });
+    this.geometries.push(gemGeo);
+    this.materials.push(gemMat);
+    this.gem = new THREE.Mesh(gemGeo, gemMat);
+    this.group.add(this.gem);
+
+    // 3. Ground ring rippling outward
+    const ringGeo = new THREE.RingGeometry(0.2, 1, 48, 1);
+    ringGeo.rotateX(-Math.PI / 2);
+    this.ringMat = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: gold }, uTime: { value: 0 }, uFade: { value: 1 } },
+      vertexShader: `
+        varying vec2 vPos;
+        void main() {
+          vPos = position.xz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uTime;
+        uniform float uFade;
+        varying vec2 vPos;
+        void main() {
+          float r = length(vPos);
+          float wave = fract(r * 1.2 - uTime * 0.35);
+          float band = smoothstep(0.0, 0.12, wave) * (1.0 - smoothstep(0.12, 0.3, wave));
+          float fade = 1.0 - smoothstep(0.55, 1.0, r);
+          gl_FragColor = vec4(uColor, band * fade * 0.55 * uFade);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.geometries.push(ringGeo);
+    this.materials.push(this.ringMat);
+    const ring = new THREE.Mesh(ringGeo, this.ringMat);
+    ring.scale.setScalar(9);
+    ring.position.y = 0.25;
+    this.group.add(ring);
+
     this.group.visible = false;
     this.scene.add(this.group);
   }
 
-  private buildArrow(): void {
-    // 1. Arrow Core Material (Vibrant ruby red with warm emissive glow)
-    const arrowMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444, // Bright crimson/ruby red
-      emissive: 0xdc2626,
-      emissiveIntensity: 0.65,
-      roughness: 0.25,
-      metalness: 0.15,
-      flatShading: false,
-    });
-    this.materials.push(arrowMat);
-
-    // 2. Down-pointing Arrow Head (Cone)
-    const coneRadius = 1.05;
-    const coneHeight = 1.6;
-    const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 20);
-    this.geometries.push(coneGeo);
-
-    const coneMesh = new THREE.Mesh(coneGeo, arrowMat);
-    // In Three.js, cone tip points +Y by default; rotate 180 deg so tip points straight down
-    coneMesh.rotation.x = Math.PI;
-    coneMesh.position.y = coneHeight * 0.5; // tip will touch y = 0
-    coneMesh.castShadow = true;
-    this.arrowMeshGroup.add(coneMesh);
-
-    // 3. Arrow Shaft (Cylinder)
-    const shaftRadius = 0.42;
-    const shaftHeight = 1.7;
-    const shaftGeo = new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftHeight, 20);
-    this.geometries.push(shaftGeo);
-
-    const shaftMesh = new THREE.Mesh(shaftGeo, arrowMat);
-    shaftMesh.position.y = coneHeight + shaftHeight * 0.5;
-    shaftMesh.castShadow = true;
-    this.arrowMeshGroup.add(shaftMesh);
-
-    // Top cap finial (Sphere)
-    const capGeo = new THREE.SphereGeometry(shaftRadius * 1.15, 16, 16);
-    this.geometries.push(capGeo);
-    const capMesh = new THREE.Mesh(capGeo, arrowMat);
-    capMesh.position.y = coneHeight + shaftHeight;
-    this.arrowMeshGroup.add(capMesh);
-
-    this.group.add(this.arrowMeshGroup);
-
-    // 4. Pulsing Beacon Halo Ring under the arrow tip
-    const ringGeo = new THREE.TorusGeometry(1.6, 0.08, 12, 32);
-    this.geometries.push(ringGeo);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xff3b30,
-      transparent: true,
-      opacity: 0.85,
-      blending: THREE.AdditiveBlending,
-    });
-    this.materials.push(ringMat);
-
-    this.beaconRing = new THREE.Mesh(ringGeo, ringMat);
-    this.beaconRing.rotation.x = Math.PI * 0.5; // flat horizontal ring
-    this.beaconRing.position.y = -0.2;
-    this.group.add(this.beaconRing);
-
-    // 5. Point Light casting warm red glow on the bungalow roof
-    this.pointLight = new THREE.PointLight(0xef4444, 2.2, 14.0);
-    this.pointLight.position.set(0, 1.2, 0);
-    this.group.add(this.pointLight);
-  }
-
   /**
-   * Positions the arrow above a world location.
+   * Places the beacon on a station building. `heightOffset` is the height
+   * of the gem above the ground (roof height + a little).
    */
   public setTarget(x: number, z: number, heightOffset = 8.5): void {
-    let groundY = 0;
-    if (this.getHeight) {
-      groundY = this.getHeight(x, z);
-    }
-    this.baseY = groundY + heightOffset;
-    this.group.position.set(x, this.baseY, z);
+    const groundY = this.getHeight ? this.getHeight(x, z) : 0;
+    this.group.position.set(x, groundY, z);
+    this.gemBaseY = heightOffset;
+    this.gem.position.y = heightOffset;
     this.show();
   }
 
-  /**
-   * Sets the position directly from a Vector3.
-   */
   public setTargetVector(pos: THREE.Vector3, heightOffset = 8.5): void {
     this.setTarget(pos.x, pos.z, heightOffset);
   }
@@ -134,36 +155,24 @@ export class WaypointArrow {
     this.targetScale = 0.0;
   }
 
-  /**
-   * Frame animation update: spinning, vertical bobbing, and halo pulse.
-   */
   public update(dt: number, elapsed: number): void {
-    if (!this.group.visible && this.currentScale <= 0.001) return;
+    if (!this.group.visible) return;
 
-    // Smooth scale enter/exit
-    this.currentScale = THREE.MathUtils.lerp(this.currentScale, this.targetScale, Math.min(dt * 8.0, 1.0));
-    this.group.scale.setScalar(this.currentScale);
-    if (this.currentScale <= 0.005 && !this.isVisible) {
+    // Fade in/out instead of popping
+    this.currentScale = THREE.MathUtils.lerp(this.currentScale, this.targetScale, Math.min(dt * 4.0, 1.0));
+    if (this.currentScale <= 0.01 && !this.isVisible) {
       this.group.visible = false;
       return;
     }
+    this.pillarMat.uniforms.uFade.value = this.currentScale;
+    this.ringMat.uniforms.uFade.value = this.currentScale;
+    this.pillarMat.uniforms.uTime.value = elapsed;
+    this.ringMat.uniforms.uTime.value = elapsed;
 
-    // Continuous 360-degree rotation
-    this.arrowMeshGroup.rotation.y += dt * 3.0;
-
-    // Gentle vertical bobbing motion (sine wave)
-    const bobOffset = Math.sin(elapsed * 3.8) * 0.42;
-    this.arrowMeshGroup.position.y = bobOffset;
-
-    // Pulse the beacon ring
-    if (this.beaconRing) {
-      const pulse = 1.0 + Math.sin(elapsed * 4.5) * 0.22;
-      this.beaconRing.scale.setScalar(pulse);
-      const ringMat = this.beaconRing.material as THREE.MeshBasicMaterial;
-      if (ringMat) {
-        ringMat.opacity = 0.55 + Math.sin(elapsed * 4.5) * 0.3;
-      }
-    }
+    // Slow turn and gentle float
+    this.gem.rotation.y += dt * 0.8;
+    this.gem.position.y = this.gemBaseY + Math.sin(elapsed * 1.6) * 0.35;
+    this.gem.scale.setScalar(Math.max(this.currentScale, 0.001));
   }
 
   public dispose(): void {

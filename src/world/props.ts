@@ -10,6 +10,7 @@ import {
   type FoliagePart,
 } from './foliageAssets';
 import { StreamedLayer } from './StreamedLayer';
+import { isInsideBuilding } from './stationLayout';
 
 export interface PropsManager {
   group: THREE.Group;
@@ -194,6 +195,8 @@ export function createPropsManager(
     tilt = 0.06,
     yScale = 1
   ): void => {
+    // Never grow through a station building (small margin for walls and steps)
+    if (isInsideBuilding(x, z, 0.6)) return;
     pos.set(x, getHeight(x, z) - sink, z);
     euler.set(range(-tilt, tilt), rand() * Math.PI * 2, range(-tilt, tilt));
     quat.setFromEuler(euler);
@@ -290,6 +293,7 @@ export function createPropsManager(
         const d = distToPath(p2.x, p2.y);
         if (d < 4.8) continue;
         if (distToStation(p2.x, p2.y) < STATION_CLEAR_TREES) continue;
+        if (isInsideBuilding(p2.x, p2.y, 3)) continue; // keep canopies off the roofs
         // Groves where the mask is high; a looser row of trees framing the path
         let prob = THREE.MathUtils.smoothstep(groveMask(p2.x, p2.y), -0.3, 0.4);
         if (d < 16) prob = Math.max(prob, 0.28);

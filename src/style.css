@@ -439,6 +439,108 @@ html, body {
   font-weight: 700;
 }
 
+/* Stage dots in the quest card: done = filled, current = golden glow */
+.quest-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.quest-step {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.quest-step + .quest-step {
+  margin-left: 22px;
+}
+
+/* Connector line to the previous dot */
+.quest-step + .quest-step::before {
+  content: '';
+  position: absolute;
+  right: calc(100% + 3px);
+  top: 50%;
+  width: 16px;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.quest-step.done {
+  background: #f5d27a;
+  border-color: #f5d27a;
+}
+
+.quest-step.done + .quest-step::before {
+  background: #f5d27a;
+}
+
+.quest-step.current {
+  border-color: #ffe3a3;
+  background: rgba(255, 227, 163, 0.35);
+  box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.25), 0 0 10px rgba(255, 210, 122, 0.6);
+}
+
+/* Hold-to-walk button for touch and mouse (keyboard: W / arrow up) */
+.walk-hold-btn {
+  position: fixed;
+  left: 50%;
+  bottom: 6.2rem;
+  transform: translateX(-50%);
+  z-index: 26;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px; /* comfortable touch target */
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 227, 163, 0.55);
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #ffe3a3;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap; /* one line, even in the longer French and Kinyarwanda labels */
+  max-width: calc(100vw - 2rem);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* keep the press from scrolling or zooming the page */
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.55);
+  transition: opacity 0.25s ease, transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.walk-hold-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.walk-hold-btn:focus-visible {
+  outline: 2px solid #ffe3a3;
+  outline-offset: 3px;
+}
+
+.walk-hold-btn.pressed {
+  transform: translateX(-50%) scale(0.96);
+  background: rgba(255, 210, 122, 0.22);
+  box-shadow: 0 0 0 4px rgba(255, 210, 122, 0.18), 0 0 18px rgba(255, 210, 122, 0.35);
+}
+
+.walk-hold-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+}
+
 /* School of Life (Growing Stage) Card */
 .growing-card {
   width: 580px;

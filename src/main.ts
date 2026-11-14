@@ -20,6 +20,8 @@ import { WaypointArrow } from './world/WaypointArrow';
 import { PlayerController } from './world/PlayerController';
 import { QuestHUD } from './ui/QuestHUD';
 import { getMilestoneById } from './world/milestones';
+import { PathGuide } from './world/PathGuide';
+import { getStationBuilding } from './world/stationLayout';
 
 // Station ages for the life path
 const SCENE_AGES: Record<SceneId, number> = {
@@ -163,14 +165,17 @@ async function bootstrap() {
     }
   }
 
-  // 11. Create Big Red Spinning Waypoint Arrow & Quest HUD
+  // 11. Golden beacon over the next house, guiding lights along the path, and the quest card
   const waypointArrow = new WaypointArrow({
     scene,
     getHeight: terrain.getHeight,
   });
+  const pathGuide = new PathGuide(scene, pathCurve);
 
   const questHud = new QuestHUD({
     container: document.getElementById('ui-overlay') as HTMLElement,
+    // Touch / mouse "hold to walk" button (keyboard uses W / arrow keys)
+    onWalkHold: (active) => playerController.setVirtualForward(active),
   });
 
   // 12. Create Player Controller for WASD Navigation
@@ -181,6 +186,8 @@ async function bootstrap() {
     getHeight: terrain.getHeight,
     onMilestoneReached: (milestone) => {
       waypointArrow.hide();
+      pathGuide.hide();
+      questHud.setWalking(false);
       director.goToScene(milestone.id);
     },
   });
@@ -216,6 +223,8 @@ async function bootstrap() {
       updateStaticUI(sceneId);
 
       // Manage HUD and Controls depending on whether we are in a modal scene or walking
+      pathGuide.hide();
+      questHud.setWalking(false);
       if (sceneId === 'intro') {
         questHud.hide();
         waypointArrow.hide();
@@ -249,11 +258,19 @@ async function bootstrap() {
       playerController.unlock();
       questHud.setMilestone(milestone);
       questHud.show();
-      waypointArrow.setTargetVector(milestone.housePosition, milestone.arrowHeight);
-      waypointArrow.show();
+      questHud.setWalking(true);
+      // Beacon stands on the station building itself, gem just above its roof
+      const building = getStationBuilding(milestone.id);
+      if (building) {
+        waypointArrow.setTarget(building.x, building.z, milestone.arrowHeight);
+      } else {
+        waypointArrow.setTargetVector(milestone.housePosition, milestone.arrowHeight);
+      }
+      pathGuide.setRoute(playerController.getProgress(), milestone.pathT);
     } else if (targetId === 'outro') {
       questHud.hide();
       waypointArrow.hide();
+      pathGuide.hide();
       playerController.glideTo(1.0, 3.0, () => {
         director.goToScene('outro');
       });
@@ -320,7 +337,11 @@ async function bootstrap() {
 
     if (!playerController.isInputLocked()) {
       questHud.updateDistance(playerController.getDistanceToActiveMilestone());
+      // Keep the guiding lights flowing from wherever the traveller is now
+      const active = playerController.getActiveMilestone();
+      if (active) pathGuide.setRoute(playerController.getProgress(), active.pathT);
     }
+    pathGuide.update(dt, elapsed);
 
     // Update dreamlike atmospheric systems
     skySystem.update(dt, elapsed);

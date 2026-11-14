@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { STATION_COORDINATES } from '../world/path';
 import { getHeightAt } from '../world/terrain';
+import { STATION_BUILDINGS, type StationBuilding } from '../world/stationLayout';
 
 export interface StationCameraPose {
   t: number;
@@ -22,6 +23,15 @@ export class CameraRail {
   private pathPoint = new THREE.Vector3();
   private pathTangent = new THREE.Vector3();
   private up = new THREE.Vector3(0, 1, 0);
+  private sideNormal = new THREE.Vector3();
+  private stationCam = new THREE.Vector3();
+  private stationLook = new THREE.Vector3();
+
+  // Station buildings paired with their rail position, for the arrival framing
+  private stations: Array<{ t: number; b: StationBuilding }> = STATION_BUILDINGS.map((b) => ({
+    t: STATION_COORDINATES.find((s) => s.id === b.id)?.t ?? 0,
+    b,
+  }));
 
   // Active GSAP tween
   private currentTween: gsap.core.Tween | null = null;
@@ -51,8 +61,8 @@ export class CameraRail {
     this.groundCurve.getPointAt(clampedT, this.pathPoint);
     this.groundCurve.getTangentAt(clampedT, this.pathTangent).normalize();
 
-    // Side normal vector (perpendicular to path)
-    const sideNormal = new THREE.Vector3().crossVectors(this.pathTangent, this.up).normalize();
+    // Side normal vector (perpendicular to path); cached, no per-frame allocation
+    const sideNormal = this.sideNormal.crossVectors(this.pathTangent, this.up).normalize();
 
     // Intimate, cinematic 3/4 perspective (Sky: Children of the Light style)
     const elevation = 2.4;
@@ -74,6 +84,79 @@ export class CameraRail {
     outLookAt.copy(this.pathPoint)
       .addScaledVector(this.pathTangent, 4.8);
     outLookAt.y = this.pathPoint.y + 1.4;
+
+    this.blendStationFraming(clampedT, outCamPos, outLookAt);
+    this.avoidBuildings(outCamPos);
+  }
+
+  /**
+   * Near a station, ease from the chase camera into a 3/4 "arrival" shot that
+   * frames the traveller in the foreground and the station building behind.
+   * Weight is 1 at the station and fades to 0 about 15 m away along the path,
+   * so walking in feels like the camera stepping aside to present the house.
+   */
+  private blendStationFraming(t: number, outCamPos: THREE.Vector3, outLookAt: THREE.Vector3): void {
+    let best: StationBuilding | null = null;
+    let weight = 0;
+    for (const s of this.stations) {
+      const d = Math.abs(t - s.t);
+      const w = 1 - THREE.MathUtils.smoothstep(d, 0.004, 0.035);
+      if (w > weight) {
+        weight = w;
+        best = s.b;
+      }
+    }
+    if (!best || weight <= 0) return;
+
+    const p = this.pathPoint;
+    // Camera: across the path from the house, a little behind the direction of travel
+    this.stationCam.set(
+      p.x - best.dirX * 9.5 - this.pathTangent.x * 5.0,
+      p.y + 4.2,
+      p.z - best.dirZ * 9.5 - this.pathTangent.z * 5.0
+    );
+    const ground = getHeightAt(this.stationCam.x, this.stationCam.z);
+    if (this.stationCam.y < ground + 1.6) this.stationCam.y = ground + 1.6;
+
+    // Look between the traveller and the building
+    this.stationLook.set(
+      p.x * 0.45 + best.x * 0.55,
+      p.y + 2.0,
+      p.z * 0.45 + best.z * 0.55
+    );
+
+    const w = weight * weight * (3 - 2 * weight);
+    outCamPos.lerp(this.stationCam, w);
+    outLookAt.lerp(this.stationLook, w);
+  }
+
+  /**
+   * Keeps the camera out of the station houses. The chase camera sits to one
+   * side of the path, and the houses stand close to the path, so without this
+   * the camera would pass through walls and verandas. If the camera is inside
+   * a footprint (plus a margin) and below the roof, slide it out through the
+   * front of the house, toward the path. Pure math, no allocations.
+   */
+  private avoidBuildings(outCamPos: THREE.Vector3): void {
+    const margin = 1.2;
+    for (const { b } of this.stations) {
+      const px = outCamPos.x - b.x;
+      const pz = outCamPos.z - b.z;
+      // Rotate into the building's local frame (local +Z = front, facing the path)
+      const c = Math.cos(b.yaw);
+      const s = Math.sin(b.yaw);
+      const lx = px * c - pz * s;
+      const lz = px * s + pz * c;
+      const halfW = b.width / 2 + margin;
+      const halfD = b.depth / 2 + margin;
+      if (Math.abs(lx) > halfW || Math.abs(lz) > halfD) continue;
+      const floorY = getHeightAt(b.x, b.z);
+      if (outCamPos.y > floorY + b.height + 1.5) continue;
+      // Move to the front edge, then back to world space
+      const nz = halfD;
+      outCamPos.x = b.x + lx * c + nz * s;
+      outCamPos.z = b.z - lx * s + nz * c;
+    }
   }
 
   public setProgress(t: number): void {

@@ -11,8 +11,11 @@ export class GrowingScene extends BaseScene {
 
   // Overlay DOM
   private cardEl: HTMLElement | null = null;
+  private tagEl: HTMLElement | null = null;
   private titleEl: HTMLElement | null = null;
+  private subtitleEl: HTMLElement | null = null;
   private captionEl: HTMLElement | null = null;
+  private continueBtnEl: HTMLElement | null = null;
 
   // Animations & Timers
   private timelineTween: Tween | null = null;
@@ -47,7 +50,7 @@ export class GrowingScene extends BaseScene {
         const target = e.target as HTMLElement;
         if (target && target.tagName === 'BUTTON') return; // let button handler run
         e.preventDefault();
-        this.finishAndAdvance();
+        this.startWalkToMarriage();
       }
     };
     window.addEventListener('keydown', this.keyListener);
@@ -62,24 +65,23 @@ export class GrowingScene extends BaseScene {
     this.cardEl = document.createElement('div');
     this.cardEl.className = 'growing-card glass-panel';
     this.cardEl.setAttribute('role', 'region');
-    this.cardEl.setAttribute('aria-label', "The School of Life");
+    this.cardEl.setAttribute('aria-label', t('growing.title'));
 
+    // Structure only: text is filled in by updateLabels() so a language change re-renders it
     this.cardEl.innerHTML = `
       <div class="growing-card-header">
-        <span class="station-tag">Station 2 · The School of Life</span>
+        <span class="station-tag"></span>
       </div>
 
-      <h2 class="growing-title">The School of Life</h2>
-      <p class="growing-subtitle">Growing up across the terraced hills — inclusive learning through formal education, crafts, and community life.</p>
+      <h2 class="growing-title"></h2>
+      <p class="growing-subtitle"></p>
 
       <div class="growing-caption-box">
-        <p class="growing-caption">${t('growing.caption')}</p>
+        <p class="growing-caption"></p>
       </div>
 
       <div class="growing-actions">
-        <button id="btn-continue-marriage" class="primary-btn stage-action-btn" tabindex="0">
-          Continue to Town Hall (Marriage)
-        </button>
+        <button id="btn-continue-marriage" class="primary-btn stage-action-btn" tabindex="0"></button>
       </div>
     `;
 
@@ -87,23 +89,51 @@ export class GrowingScene extends BaseScene {
     if (continueBtn) {
       continueBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.finishAndAdvance();
+        this.startWalkToMarriage();
       });
     }
 
+    this.tagEl = this.cardEl.querySelector('.station-tag');
+    this.subtitleEl = this.cardEl.querySelector('.growing-subtitle');
+    this.continueBtnEl = continueBtn as HTMLElement | null;
     this.titleEl = this.cardEl.querySelector('.growing-title');
     this.captionEl = this.cardEl.querySelector('.growing-caption');
 
+    this.updateLabels();
     container.appendChild(this.cardEl);
   }
 
   private updateLabels(): void {
-    if (this.titleEl) this.titleEl.textContent = "The School of Life";
+    if (this.cardEl) this.cardEl.setAttribute('aria-label', t('growing.title'));
+    if (this.tagEl) this.tagEl.textContent = t('growing.station_tag');
+    if (this.titleEl) this.titleEl.textContent = t('growing.title');
+    if (this.subtitleEl) this.subtitleEl.textContent = t('growing.subtitle');
     if (this.captionEl) this.captionEl.textContent = t('growing.caption');
+    if (this.continueBtnEl) this.continueBtnEl.textContent = t('growing.continue_btn');
   }
 
+  /** Skip (e.g. the nav "Next" button) still fast-travels straight to marriage. */
   public skip(): void {
     this.finishAndAdvance();
+  }
+
+  /**
+   * Close the card and let the player walk the path to the sector office,
+   * like every other stage hand-off. Arriving at the door opens the marriage
+   * scene (main.ts listens for 'lifepath:walkToMilestone').
+   */
+  private startWalkToMarriage(): void {
+    if (this.keyListener) {
+      // Space / Enter now belong to the walk button, not this card
+      window.removeEventListener('keydown', this.keyListener);
+      this.keyListener = null;
+    }
+    if (this.cardEl) {
+      this.cardEl.remove();
+      this.cardEl = null;
+      this.tagEl = this.titleEl = this.subtitleEl = this.captionEl = this.continueBtnEl = null;
+    }
+    window.dispatchEvent(new CustomEvent('lifepath:walkToMilestone', { detail: { id: 'marriage' } }));
   }
 
   private finishAndAdvance(): void {

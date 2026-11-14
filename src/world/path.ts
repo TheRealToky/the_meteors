@@ -78,9 +78,10 @@ export function createPathMesh(
   const up = new THREE.Vector3(0, 1, 0);
 
   // Painterly Rwandan pathway colors
-  const cCenter   = new THREE.Color(0xdcb582); // Sun-baked clay & sandstone
-  const cShoulder = new THREE.Color(0xa77850); // Fertile reddish-ochre road shoulder
-  const cEdge     = new THREE.Color(0x6ca458); // Melts into terrace grass
+  // Light sandy trail (reference art direction) with warm ochre shoulders and grassy edges
+  const cCenter   = new THREE.Color(0xf0dca8); // Sun-bleached sand
+  const cShoulder = new THREE.Color(0xd4b47a); // Warm ochre earth
+  const cEdge     = new THREE.Color(0x9cc54c); // Melts into the meadow grass
 
   const halfW = pathWidth * 0.5;
   const offsets = [-1.0, -0.5, 0.0, 0.5, 1.0];
@@ -135,11 +136,12 @@ export function createPathMesh(
   geom.computeVertexNormals();
 
   // Velvety smooth path material (Sky: Children of the Light aesthetic)
-  const material = new THREE.MeshStandardMaterial({
+  // Matte, like the terrain; polygonOffset keeps it from flickering against the ground
+  const material = new THREE.MeshLambertMaterial({
     vertexColors: true,
-    roughness: 0.82,
-    metalness: 0.0,
-    flatShading: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
   });
 
   const mesh = new THREE.Mesh(geom, material);

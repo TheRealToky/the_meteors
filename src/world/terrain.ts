@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { fbm2D, simplex2D } from './noise';
+import { STATION_BUILDINGS } from './stationLayout';
 
 export interface TerrainConfig {
   size: number;
@@ -49,10 +50,66 @@ export function calculateTerrainElevation(
   return rawH * (1 - config.terraceBlend) + steppedH * config.terraceBlend;
 }
 
+// ---------------------------------------------------------------------------
+// Station yards: the hills are levelled into a small flat yard under each
+// station building and the stretch of path in front of it, blending smoothly
+// back into the natural slope. Without this, buildings on steep slopes need
+// metres of exposed foundation.
+// ---------------------------------------------------------------------------
+
+interface Yard {
+  x: number;
+  z: number;
+  cos: number;
+  sin: number;
+  halfW: number;
+  zMin: number; // local z range (front of the building faces +z, toward the path)
+  zMax: number;
+  height: number;
+}
+
+const YARD_FALLOFF = 9; // metres over which the yard blends back into the hill
+let yards: Yard[] | null = null;
+
+function getYards(): Yard[] {
+  if (yards) return yards;
+  yards = STATION_BUILDINGS.map((b) => ({
+    x: b.x,
+    z: b.z,
+    cos: Math.cos(b.yaw),
+    sin: Math.sin(b.yaw),
+    halfW: b.width / 2 + 1.5,
+    zMin: -b.depth / 2 - 1.2,
+    // reach across the path so the path in front of the door is level too
+    zMax: b.depth / 2 + Math.hypot(b.x - b.pathX, b.z - b.pathZ) - b.depth / 2 + 2.5,
+    // level at the natural height of the path station, so the path is undisturbed there
+    height: calculateTerrainElevation(b.pathX, b.pathZ),
+  }));
+  return yards;
+}
+
 /**
- * Direct height lookup helper for terrain elevation at any (x, z) coordinates.
+ * Terrain height including the levelled station yards. Every system (terrain
+ * mesh, path, props, character, camera) uses this, so they all agree.
  */
-export const getHeightAt = calculateTerrainElevation;
+export function getHeightAt(x: number, z: number): number {
+  let h = calculateTerrainElevation(x, z);
+  for (const y of getYards()) {
+    const px = x - y.x;
+    const pz = z - y.z;
+    // into the yard's local frame (inverse of the building rotation)
+    const lx = px * y.cos - pz * y.sin;
+    const lz = px * y.sin + pz * y.cos;
+    const ox = Math.max(0, Math.abs(lx) - y.halfW);
+    const oz = Math.max(0, lz - y.zMax, y.zMin - lz);
+    const outside = Math.hypot(ox, oz);
+    if (outside >= YARD_FALLOFF) continue;
+    const t = 1 - outside / YARD_FALLOFF;
+    const w = t * t * (3 - 2 * t); // smoothstep
+    h = h + (y.height - h) * w;
+  }
+  return h;
+}
 
 /**
  * Adds a soft, painterly brightness variation to a ground material in the
@@ -103,7 +160,7 @@ export function createTerrain(config: TerrainConfig = DEFAULT_CONFIG): {
   const count = posAttr.count;
 
   for (let i = 0; i < count; i++) {
-    posAttr.setY(i, calculateTerrainElevation(posAttr.getX(i), posAttr.getZ(i), config));
+    posAttr.setY(i, getHeightAt(posAttr.getX(i), posAttr.getZ(i)));
   }
   posAttr.needsUpdate = true;
   geometry.computeVertexNormals();
@@ -166,7 +223,7 @@ export function createTerrain(config: TerrainConfig = DEFAULT_CONFIG): {
 
   return {
     mesh,
-    getHeight: (x: number, z: number) => calculateTerrainElevation(x, z, config),
+    getHeight: getHeightAt,
     dispose: () => {
       geometry.dispose();
       material.dispose();
@@ -191,9 +248,9 @@ export function createBackdropHills(
   const positions: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
-  const cNear = new THREE.Color(0x8fc445);
-  const cFar = new THREE.Color(0x9ec765);
-  const cGold = new THREE.Color(0xcfc04c);
+  const cNear = new THREE.Color(0x86b848);
+  const cFar = new THREE.Color(0x9dbfa6); // blue-green haze
+  const cGold = new THREE.Color(0xc2b856);
   const c = new THREE.Color();
 
   for (let ri = 0; ri < radii.length; ri++) {
@@ -214,8 +271,10 @@ export function createBackdropHills(
       const y = inside ? edgeH - 2.5 : THREE.MathUtils.lerp(edgeH - 0.6, Math.max(hills, edgeH), t);
       positions.push(x, y, z);
 
-      c.lerpColors(cNear, cFar, THREE.MathUtils.smoothstep(r, 140, 320));
-      c.lerp(cGold, THREE.MathUtils.smoothstep(simplex2D(x * 0.01, z * 0.01), 0.2, 0.7) * 0.5);
+      c.lerpColors(cNear, cFar, THREE.MathUtils.smoothstep(r, 140, 300));
+      c.lerp(cGold, THREE.MathUtils.smoothstep(simplex2D(x * 0.01, z * 0.01), 0.2, 0.7) * 0.35);
+      // Lighter toward the hill tops, so ridgelines stand out against each other
+      c.multiplyScalar(0.92 + 0.12 * THREE.MathUtils.clamp((y - 5) / 40, 0, 1));
       colors.push(c.r, c.g, c.b);
     }
   }
@@ -236,7 +295,9 @@ export function createBackdropHills(
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // Unlit: distant hills read as soft painted silhouettes (aerial perspective),
+  // not as shaded geometry. Fog still fades them into the horizon.
+  const material = new THREE.MeshBasicMaterial({ vertexColors: true });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.receiveShadow = false;
   mesh.name = 'backdrop-hills';

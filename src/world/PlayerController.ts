@@ -40,8 +40,11 @@ export class PlayerController {
     backward: false,
   };
 
-  // Pre-allocated vectors for distance calculation
-  private _charPos = new THREE.Vector3();
+  // Path length in metres, used to turn progress differences into distances
+  private readonly pathLength: number;
+
+  // Touch / mouse "hold to walk" button state (see QuestHUD)
+  private virtualForward = false;
 
   // Listeners
   private keyDownHandler: (e: KeyboardEvent) => void;
@@ -55,6 +58,7 @@ export class PlayerController {
     this.onProgressChangeCallback = options.onProgressChange;
 
     this.progress = this.cameraRail.getProgress();
+    this.pathLength = this.curve.getLength();
 
     // Default to first milestone (Birth)
     this.activeMilestone = MILESTONES[0];
@@ -93,6 +97,7 @@ export class PlayerController {
     this.isLocked = true;
     this.keys.forward = false;
     this.keys.backward = false;
+    this.virtualForward = false;
     this.velocity = 0;
     this.characterRig.setMoving(false);
   }
@@ -159,17 +164,18 @@ export class PlayerController {
     });
   }
 
+  /** Pointer-driven walking (the on-screen "hold to walk" button). */
+  public setVirtualForward(active: boolean): void {
+    this.virtualForward = active;
+  }
+
   /**
-   * Calculates current distance (in meters) to the active milestone house.
+   * Distance (metres) still to walk along the path to the active milestone's door.
+   * Measured along the path, not in a straight line, so it matches the walk.
    */
   public getDistanceToActiveMilestone(): number {
     if (!this.activeMilestone) return 0;
-    this.curve.getPointAt(this.progress, this._charPos);
-    
-    // Distance in XZ plane
-    const dx = this._charPos.x - this.activeMilestone.housePosition.x;
-    const dz = this._charPos.z - this.activeMilestone.housePosition.z;
-    return Math.sqrt(dx * dx + dz * dz);
+    return Math.abs(this.activeMilestone.pathT - this.progress) * this.pathLength;
   }
 
   /**
@@ -181,7 +187,7 @@ export class PlayerController {
     // 1. Process movement inputs if not locked
     let inputDir = 0;
     if (!this.isLocked) {
-      if (this.keys.forward) inputDir += 1;
+      if (this.keys.forward || this.virtualForward) inputDir += 1;
       if (this.keys.backward) inputDir -= 1;
     }
 
@@ -216,11 +222,9 @@ export class PlayerController {
 
     // 4. Proximity detection for active milestone
     if (this.activeMilestone && !this.hasTriggeredActive && !this.isLocked) {
+      // Trigger when the traveller reaches the door (within triggerRadius along the path)
       const dist = this.getDistanceToActiveMilestone();
-      const progressDiff = Math.abs(this.progress - this.activeMilestone.pathT);
-
-      // Trigger if within triggerRadius OR closely aligned along path
-      if (dist <= this.activeMilestone.triggerRadius || progressDiff <= 0.016) {
+      if (dist <= this.activeMilestone.triggerRadius) {
         this.hasTriggeredActive = true;
         this.lock();
         if (this.onMilestoneReachedCallback) {

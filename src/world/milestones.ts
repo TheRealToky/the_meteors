@@ -1,90 +1,50 @@
 import * as THREE from 'three';
 import { SceneId } from '../director/types';
+import { STATION_COORDINATES } from './path';
+import { getStationBuilding } from './stationLayout';
 
 export interface Milestone {
   id: SceneId;
   order: number; // 1 to 5 (0 = intro, 6 = outro)
-  title: string;
-  buildingName: string;
-  guideStep: string;
+  /** i18n keys for the quest card (text lives in /public/i18n) */
+  titleKey: string;
+  guideKey: string;
   pathT: number;
+  /** Centre of the station building (world x, z; y unused) */
   housePosition: THREE.Vector3;
+  /** Height of the beacon gem above the ground (roof top + a little) */
   arrowHeight: number;
   triggerRadius: number;
   targetAge: number;
 }
 
-/**
- * 5 primary life milestones corresponding to real architectural houses/pavilions along the Rwandan path.
- * 
- * 1. Birth -> Maternity Health Center (Guide parents)
- * 2. Youth -> The School of Life (Inclusive education & trade wisdom)
- * 3. Marriage -> Town Hall (Umurenge civil registry)
- * 4. Divorce -> Community Justice Courtroom (Civil mediation & records)
- * 5. Death -> Sunset Sanctuary & Memory Pavilion (Honoring life completion & mortality stats)
- */
-export const MILESTONES: Milestone[] = [
-  {
-    id: 'birth',
-    order: 1,
-    title: 'Newborn Registration',
-    buildingName: 'District Maternity Health Center',
-    guideStep: 'Guide your parents to the Health Center to register your birth among 356,838 newborns.',
-    pathT: 0.192,
-    housePosition: new THREE.Vector3(-36.0, 0, -28.0),
-    arrowHeight: 8.5,
-    triggerRadius: 6.5,
-    targetAge: 0,
-  },
-  {
-    id: 'growing',
-    order: 2,
-    title: 'Youth & Growing Up',
-    buildingName: 'The School of Life',
-    guideStep: 'Walk to the School of Life pavilion to explore youth milestones, education, and vocational beginnings.',
-    pathT: 0.299,
-    housePosition: new THREE.Vector3(-22.0, 0, -2.0),
-    arrowHeight: 8.5,
-    triggerRadius: 6.5,
-    targetAge: 15,
-  },
-  {
-    id: 'marriage',
-    order: 3,
-    title: 'Civil Marriage',
-    buildingName: 'Town Hall (Umurenge Civil Registry)',
-    guideStep: 'Head to the Town Hall to register civil marriage ceremonies and discover wedding age patterns.',
-    pathT: 0.455,
-    housePosition: new THREE.Vector3(20.0, 0, -5.0),
-    arrowHeight: 9.0,
-    triggerRadius: 6.5,
-    targetAge: 24,
-  },
-  {
-    id: 'divorce',
-    order: 4,
-    title: 'Marital Transition',
-    buildingName: 'Community Justice Courtroom',
-    guideStep: 'Proceed to the Justice Courtroom to examine marital transitions and divorce duration records.',
-    pathT: 0.551,
-    housePosition: new THREE.Vector3(32.0, 0, 26.0),
-    arrowHeight: 8.5,
-    triggerRadius: 6.5,
-    targetAge: 41,
-  },
-  {
-    id: 'death',
-    order: 5,
-    title: 'The Final Horizon & Legacy',
-    buildingName: 'Sunset Sanctuary & Memory Pavilion',
-    guideStep: 'Journey to the Sunset Sanctuary to honor a completed life and review vital mortality statistics.',
-    pathT: 0.785,
-    housePosition: new THREE.Vector3(68.0, 0, -34.0),
-    arrowHeight: 9.0,
-    triggerRadius: 6.5,
-    targetAge: 75,
-  },
+const ORDERED: Array<{ id: SceneId; targetAge: number }> = [
+  { id: 'birth', targetAge: 0 },
+  { id: 'growing', targetAge: 15 },
+  { id: 'marriage', targetAge: 24 },
+  { id: 'divorce', targetAge: 41 },
+  { id: 'death', targetAge: 75 },
 ];
+
+/**
+ * The 5 life milestones the player walks between. Positions come from the
+ * path stations and the station buildings, so they can never drift apart.
+ */
+export const MILESTONES: Milestone[] = ORDERED.map(({ id, targetAge }, i) => {
+  const station = STATION_COORDINATES.find((s) => s.id === id);
+  const building = getStationBuilding(id);
+  return {
+    id,
+    order: i + 1,
+    titleKey: `quest.${id}.title`,
+    guideKey: `quest.${id}.guide`,
+    pathT: station?.t ?? 0,
+    housePosition: new THREE.Vector3(building?.x ?? station?.x ?? 0, 0, building?.z ?? station?.z ?? 0),
+    arrowHeight: (building?.height ?? 6) + 2.8,
+    triggerRadius: 6.5,
+    targetAge,
+  };
+});
 
 export function getMilestoneById(id: SceneId): Milestone | undefined {
   return MILESTONES.find((m) => m.id === id);
